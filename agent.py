@@ -110,6 +110,20 @@ class AgentHandler(BaseHTTPRequestHandler):
     def do_GET(self):
         global CWD
 
+        # Отдаём index.html — полноценный Tovsa RC без mixed content
+        if self.path in ("/app", "/app/", "/index.html"):
+            html_path = INSTALL_DIR / "index.html"
+            if not html_path.exists():
+                self.send_json({"error": "index.html не найден в ~/.tovsa/ — скачай и положи туда"}, 404)
+                return
+            body = html_path.read_bytes()
+            self.send_response(200)
+            self.send_header("Content-Type",   "text/html; charset=utf-8")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+            return
+
         if self.path == "/":
             self.send_json({
                 "name": "Tovsa RC Agent", "version": "1.2",
@@ -118,6 +132,7 @@ class AgentHandler(BaseHTTPRequestHandler):
                 "termux": IS_TERMUX,
                 "storage": str(Path.home() / "storage") if IS_TERMUX else None,
                 "pillow": HAS_PILLOW,
+                "app": f"http://localhost:{PORT}/app",
             })
             return
 
@@ -343,12 +358,13 @@ def main():
 ║         Tovsa RC Agent v1.2            ║
 ╚════════════════════════════════════════╝
 
-  Адрес:    http://{HOST}:{PORT}
+  API:      http://{HOST}:{PORT}
+  Приложение: http://{HOST}:{PORT}/app
   Папка:    {CWD}
   Платформа:{sys.platform}{'  (Termux)' if IS_TERMUX else ''}
   JPEG:     {'✓ Pillow' if HAS_PILLOW else '✗ PNG (pip install pillow для ускорения)'}
 
-  В Tovsa RC → Команды → Агент → http://localhost:{PORT}
+  Открой в Chrome: http://localhost:{PORT}/app
 
   Ctrl+C для остановки
 """)

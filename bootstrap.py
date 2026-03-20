@@ -46,12 +46,24 @@ def main():
         print(f"  ✓ Сохранён: {AGENT_PATH}")
     except Exception as e:
         print(f"  ✗ Ошибка загрузки: {e}")
-        # Если не скачалось — попробовать запустить уже существующий
         if AGENT_PATH.exists():
             print(f"  → Использую существующий: {AGENT_PATH}")
         else:
             print("  Нет сети и нет локальной копии. Скачай agent.py вручную.")
             sys.exit(1)
+
+    # Скачиваем index.html для раздачи с localhost
+    HTML_URL  = f"{REPO}/index.html"
+    HTML_PATH = INSTALL_DIR / "index.html"
+    print(f"  ↓ Скачиваю index.html...")
+    try:
+        req = urllib.request.Request(HTML_URL, headers={"User-Agent": "TovsaRC-Bootstrap/1.0"})
+        with urllib.request.urlopen(req, timeout=15) as resp:
+            content = resp.read()
+        HTML_PATH.write_bytes(content)
+        print(f"  ✓ Сохранён: {HTML_PATH}")
+    except Exception as e:
+        print(f"  ✗ Не удалось скачать index.html: {e} (агент продолжит работу)")
 
     print(f"  Python: {sys.version.split()[0]}")
     print()

@@ -2,7 +2,8 @@
   "name": "Tovsa Remote",
   "short_name": "Tovsa RC",
   "description": "Удалённое управление устройствами через Tovsa",
-  "start_url": "./index.html",
+  "start_url": "/tovsa-rc/index.html",
+  "scope": "/tovsa-rc/",
   "display": "standalone",
   "orientation": "portrait",
   "background_color": "#0a0a0f",
@@ -27,6 +28,10 @@
       "purpose": "maskable"
     }
   ],
-  "categories": ["utilities", "productivity"],
-  "lang": "ru"
+  "categories": [
+    "utilities",
+    "productivity"
+  ],
+  "lang": "ru",
+  "prefer_related_applications": false
 }

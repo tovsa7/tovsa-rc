@@ -572,16 +572,8 @@ select{cursor:pointer;appearance:none;
 <!-- ── SCREEN panel ── -->
 <div class="inner-panel" id="ipanel-screen">
 
-  <!-- Нет агента -->
-  <div id="screen-no-agent" style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:32px;text-align:center">
-    <div style="font-size:44px;opacity:.2">📺</div>
-    <div style="font-size:13px;font-weight:700;color:var(--mu)">Нужен агент</div>
-    <div style="font-size:11px;color:var(--mu);opacity:.7;line-height:1.7">Подключи агент во вкладке «Команды» и выдай root-права</div>
-    <button class="btn" onclick="switchInnerTab('commands')">⚡ К агенту</button>
-  </div>
-
   <!-- Экран активен -->
-  <div id="screen-active" style="display:none;flex-direction:column;flex:1;min-height:0;overflow:hidden">
+  <div id="screen-active" style="display:flex;flex-direction:column;flex:1;min-height:0;overflow:hidden">
 
     <!-- Тулбар -->
     <div style="display:flex;align-items:center;gap:6px;padding:6px 10px;background:var(--sf);border-bottom:1px solid var(--bd);flex-shrink:0">
@@ -847,7 +839,6 @@ function switchInnerTab(name){
     if(t===name){panel.style.animation='slideIn'+dir+' .2s cubic-bezier(.4,0,.2,1) both';panel.classList.add('on');}else{panel.classList.remove('on');panel.style.animation='';}
   });
   if(name==='files') fmCheckRemoteState();
-  if(name==='screen') screenCheckAgent();
 }
 
 function renderDeviceChat(id){
@@ -2049,14 +2040,10 @@ let _screenPtrDownY  = 0;
 let _screenPtrDownTs = 0;
 
 function screenCheckAgent(){
-  const connected = $('agent-status')?.textContent?.includes('подключён');
-  $('screen-no-agent').style.display  = connected ? 'none' : '';
-  $('screen-active').style.display    = connected ? 'flex' : 'none';
-  return connected;
+  return !!_agentUrl;
 }
 
 async function screenStart(){
-  if(!screenCheckAgent()) return;
   // Получаем разрешение экрана
   try{
     const info = await agentFetch('/screeninfo');

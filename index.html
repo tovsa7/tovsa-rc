@@ -1,0 +1,1543 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Tovsa Remote</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap');
+
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;overflow:hidden}
+:root{
+  --bg:#0a0a0f;--sf:#12121a;--bd:#2c2c42;
+  --a:#00ff9d;--ad:rgba(0,255,157,.08);--am:rgba(0,255,157,.18);
+  --tx:#e0e0f0;--mu:#9090b8;
+  --w:#e5c07b;--e:#e06c75;
+  --br:14px;
+  --topbar-h:48px;
+  --tabbar-h:62px;
+}
+body{
+  font-family:'JetBrains Mono',monospace;
+  background:var(--bg);color:var(--tx);
+}
+
+/* ── FIXED TOPBAR ── */
+.topbar{
+  position:fixed;top:0;left:0;right:0;z-index:50;
+  height:calc(var(--topbar-h) + env(safe-area-inset-top,0px));
+  padding:0 16px;
+  padding-top:env(safe-area-inset-top,0px);
+  background:var(--sf);border-bottom:1px solid var(--bd);
+  display:flex;align-items:center;gap:10px;
+}
+.topbar-title{font-size:13px;font-weight:700;color:var(--a);letter-spacing:2px;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--mu);transition:background .4s;flex-shrink:0}
+.dot.act{background:var(--w);box-shadow:0 0 8px var(--w)}
+.dot.on{background:var(--a);box-shadow:0 0 8px var(--a)}
+.topbar-id{
+  font-size:10px;color:var(--a);
+  background:var(--ad);border:1px solid rgba(0,255,157,.2);
+  border-radius:6px;padding:3px 8px;
+  max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  cursor:pointer;display:none;flex-shrink:0;
+}
+.topbar-back{
+  background:none;border:none;color:var(--mu);
+  font-size:22px;cursor:pointer;padding:0;line-height:1;flex-shrink:0;
+  display:none;
+}
+
+/* ── SCREENS (fixed, fill between topbar and tabbar) ── */
+.scr{
+  position:fixed;
+  top:calc(var(--topbar-h) + env(safe-area-inset-top,0px));
+  left:0;right:0;
+  bottom:calc(var(--tabbar-h) + env(safe-area-inset-bottom,0px));
+  display:none;flex-direction:column;overflow:hidden;
+}
+.scr.on{display:flex}
+
+/* Device screen — full screen, no tabbar */
+#s-device{
+  position:fixed;
+  top:calc(var(--topbar-h) + env(safe-area-inset-top,0px));
+  left:0;right:0;
+  bottom:0;
+  display:none;flex-direction:column;overflow:hidden;
+  z-index:20;
+}
+#s-device.on{display:flex}
+
+/* ── FLOATING TABBAR ── */
+.tabbar{
+  display:flex;flex-shrink:0;
+  background:var(--sf);
+  border:1px solid var(--bd);
+  position:fixed;
+  bottom:calc(10px + env(safe-area-inset-bottom,0px));
+  left:12px;right:12px;
+  z-index:100;
+  padding:5px;gap:0;
+  border-radius:18px;
+  box-shadow:0 4px 24px rgba(0,0,0,.45),0 1px 0 rgba(255,255,255,.04) inset;
+}
+#tab-pill{
+  position:absolute;top:5px;bottom:5px;
+  background:var(--ad);border:1px solid rgba(0,255,157,.2);
+  border-radius:13px;pointer-events:none;
+  transition:left .28s cubic-bezier(.34,1.4,.64,1),width .28s cubic-bezier(.34,1.4,.64,1);
+  box-shadow:0 0 12px rgba(0,255,157,.08);
+}
+.tab{
+  flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;
+  padding:7px 4px;cursor:pointer;font-family:inherit;
+  border:none;background:transparent;color:var(--mu);
+  transition:color .2s,transform .15s;
+  -webkit-tap-highlight-color:transparent;outline:none;
+  border-radius:13px;position:relative;z-index:1;
+}
+.tab:active{transform:scale(.9)}
+.tab.act{color:var(--a)}
+.tab-icon{font-size:20px;line-height:1}
+.tab-label{font-size:9px;letter-spacing:.5px;font-weight:700}
+.tab-badge{
+  display:none;min-width:16px;height:16px;padding:0 4px;
+  background:var(--e);color:#fff;font-size:9px;font-weight:700;
+  border-radius:8px;align-items:center;justify-content:center;
+  position:absolute;top:-4px;right:-2px;
+}
+.tab-icon-wrap{position:relative;display:flex;align-items:center;justify-content:center}
+
+/* ── INNER TABS (inside device screen) ── */
+.inner-tabbar{
+  display:flex;border-bottom:1px solid var(--bd);
+  background:var(--sf);flex-shrink:0;
+  padding:0 8px;gap:0;
+}
+.inner-tab{
+  flex:1;padding:10px 4px;text-align:center;
+  font-family:inherit;font-size:11px;font-weight:700;
+  cursor:pointer;color:var(--mu);border:none;background:transparent;
+  border-bottom:2px solid transparent;
+  transition:color .15s,border-color .15s;
+  letter-spacing:.5px;
+}
+.inner-tab.act{color:var(--a);border-bottom-color:var(--a)}
+.inner-panel{display:none;flex:1;min-height:0;flex-direction:column;overflow:hidden}
+.inner-panel.on{display:flex}
+
+/* ── SHARED COMPONENTS ── */
+input,textarea,select{
+  width:100%;background:var(--bg);border:1px solid var(--bd);
+  border-radius:10px;padding:11px 14px;
+  color:var(--tx);font-family:inherit;font-size:12px;
+  outline:none;transition:border-color .2s;
+}
+input:focus,textarea:focus,select:focus{border-color:var(--a)}
+input::placeholder,textarea::placeholder{color:var(--mu)}
+textarea{resize:none;line-height:1.5}
+select{cursor:pointer;appearance:none;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%239090b8'/%3E%3C/svg%3E");
+  background-repeat:no-repeat;background-position:right 12px center}
+
+.btn{
+  background:var(--a);color:#000;border:none;
+  border-radius:10px;padding:12px 18px;
+  font-family:inherit;font-size:12px;font-weight:700;
+  cursor:pointer;letter-spacing:.5px;
+  transition:opacity .15s,transform .1s;
+  display:inline-flex;align-items:center;justify-content:center;gap:6px;
+}
+.btn:active{opacity:.8;transform:scale(.97)}
+.btn:disabled{opacity:.3;cursor:not-allowed;transform:none}
+.btn.ghost{background:transparent;color:var(--mu);border:1px solid var(--bd)}
+.btn.ghost:active{background:var(--sf)}
+.btn.danger{background:var(--e);color:#fff}
+.btn.sm{padding:7px 12px;font-size:11px;border-radius:8px}
+.btn.full{width:100%}
+
+.card{
+  background:var(--sf);border:1px solid var(--bd);
+  border-radius:var(--br);padding:16px;
+  display:flex;flex-direction:column;gap:10px;flex-shrink:0;
+}
+.card-title{font-size:10px;color:var(--mu);letter-spacing:2px;text-transform:uppercase}
+.row{display:flex;gap:8px}
+.section-scroll{flex:1;min-height:0;overflow-y:auto;padding:14px;display:flex;flex-direction:column;gap:12px;}
+
+/* ── SETTINGS SCREEN ── */
+.setup-logo{text-align:center;padding:16px 0 8px}
+.setup-logo-text{font-size:20px;font-weight:700;color:var(--a);letter-spacing:3px}
+.setup-logo-sub{font-size:10px;color:var(--mu);margin-top:4px;letter-spacing:1px}
+
+/* ── DEVICES LIST ── */
+.device-item{
+  display:flex;align-items:center;gap:12px;
+  padding:12px 14px;border-radius:12px;
+  border:1px solid var(--bd);background:var(--sf);
+  cursor:pointer;transition:border-color .12s,background .12s;
+  flex-shrink:0;
+}
+.device-item:active{border-color:rgba(0,255,157,.3);background:var(--ad)}
+.device-item.connected{border-color:rgba(0,255,157,.2)}
+.device-avatar{
+  width:44px;height:44px;border-radius:12px;
+  background:var(--ad);border:1px solid rgba(0,255,157,.15);
+  display:flex;align-items:center;justify-content:center;
+  font-size:20px;flex-shrink:0;
+}
+.device-info{flex:1;min-width:0}
+.device-name{font-size:13px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.device-status{font-size:10px;color:var(--mu);margin-top:3px;display:flex;align-items:center;gap:5px}
+.device-status-dot{width:6px;height:6px;border-radius:50%;background:var(--mu);flex-shrink:0}
+.device-status-dot.online{background:var(--a);box-shadow:0 0 5px var(--a)}
+.device-status-dot.rtc{background:#60a5fa;box-shadow:0 0 5px #60a5fa}
+
+/* ── DEVICE SCREEN header ── */
+.device-header{
+  padding:10px 14px;border-bottom:1px solid var(--bd);
+  background:var(--sf);display:flex;align-items:center;gap:10px;flex-shrink:0;
+}
+.device-header-info{flex:1;min-width:0}
+.device-header-name{font-size:14px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.device-header-sub{font-size:10px;color:var(--mu);margin-top:2px}
+.rtc-badge{font-size:10px;padding:3px 9px;border-radius:6px;border:1px solid var(--bd);color:var(--mu);flex-shrink:0}
+.rtc-badge.connecting{border-color:var(--w);color:var(--w)}
+.rtc-badge.open{border-color:var(--a);color:var(--a)}
+
+/* ── CHAT ── */
+.msgs{flex:1;min-height:0;overflow-y:auto;padding:12px 14px;display:flex;flex-direction:column;gap:6px;touch-action:pan-y}
+.msg{max-width:78%;padding:10px 13px;border-radius:14px;font-size:13px;line-height:1.5;word-break:break-word;white-space:pre-wrap;animation:popIn .18s ease}
+@keyframes popIn{from{opacity:0;transform:scale(.93) translateY(4px)}to{opacity:1;transform:none}}
+.msg.out{align-self:flex-end;background:rgba(0,255,157,.1);border:1px solid rgba(0,255,157,.2);border-bottom-right-radius:4px}
+.msg.in{align-self:flex-start;background:var(--sf);border:1px solid var(--bd);border-bottom-left-radius:4px}
+.msg.sys{align-self:center;font-size:11px;color:var(--mu);background:none;border:none;padding:2px 8px}
+.msg-time{font-size:9px;color:var(--mu);margin-top:3px;text-align:right}
+.iarea{
+  padding:10px 12px;border-top:1px solid var(--bd);
+  background:var(--sf);display:flex;gap:8px;align-items:flex-end;flex-shrink:0;
+  padding-bottom:calc(10px + env(safe-area-inset-bottom,0px));
+}
+.iarea textarea{
+  flex:1;height:calc(1.5em + 22px);max-height:110px;
+  overflow-y:auto;resize:none;border-radius:16px;padding:10px 14px;
+  font-size:13px;line-height:1.5;scrollbar-width:none;
+}
+.iarea textarea::-webkit-scrollbar{display:none}
+.send-btn{
+  width:40px;height:40px;border-radius:50%;
+  background:var(--a);border:none;color:#000;
+  font-size:17px;cursor:pointer;flex-shrink:0;
+  display:flex;align-items:center;justify-content:center;
+  align-self:flex-end;transition:opacity .15s,transform .1s;
+}
+.send-btn:active{opacity:.8;transform:scale(.9)}
+
+/* ── COMMANDS ── */
+.r-card{background:var(--sf);border:1px solid var(--bd);border-radius:14px;padding:14px;display:flex;flex-direction:column;gap:10px}
+.r-card-title{font-size:10px;color:var(--mu);letter-spacing:1.5px;text-transform:uppercase;display:flex;align-items:center;gap:8px}
+.presets{display:flex;flex-wrap:wrap;gap:6px}
+.preset{font-size:11px;padding:5px 11px;background:transparent;border:1px solid var(--bd);border-radius:20px;color:var(--mu);cursor:pointer;font-family:inherit;transition:all .12s}
+.preset:active{border-color:var(--a);color:var(--a);background:var(--ad)}
+.r-log{background:var(--bg);border:1px solid var(--bd);border-radius:10px;padding:10px 12px;font-size:10px;color:var(--mu);line-height:1.8;max-height:140px;overflow-y:auto;min-height:44px}
+.r-log .l-ok{color:var(--a)}.r-log .l-in{color:#60a5fa}.r-log .l-err{color:var(--e)}
+
+/* ── FILES ── */
+.fm-bar{padding:8px 12px;border-bottom:1px solid var(--bd);background:var(--sf);display:flex;align-items:center;gap:6px;flex-shrink:0;flex-wrap:nowrap}
+.fm-path{flex:1;font-size:11px;color:var(--a);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.fm-list{flex:1;min-height:0;overflow-y:auto;background:var(--bg)}
+.fm-item{display:flex;align-items:center;gap:10px;padding:11px 14px;border-bottom:1px solid rgba(44,44,66,.4);cursor:pointer;transition:background .1s;user-select:none}
+.fm-item:active{background:var(--ad)}
+.fm-icon{font-size:20px;flex-shrink:0;width:26px;text-align:center}
+.fm-name{flex:1;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.fm-meta{font-size:10px;color:var(--mu);flex-shrink:0;text-align:right;line-height:1.4;white-space:nowrap}
+.fm-empty{padding:40px;text-align:center;font-size:12px;color:var(--mu)}
+.fm-actions{padding:10px 12px;border-top:1px solid var(--bd);background:var(--sf);display:flex;gap:6px;flex-wrap:wrap;flex-shrink:0;padding-bottom:calc(10px + env(safe-area-inset-bottom,0px))}
+.host-badge{font-size:10px;padding:3px 8px;border-radius:6px;background:rgba(229,192,123,.1);border:1px solid rgba(229,192,123,.3);color:var(--w);flex-shrink:0}
+.xfer-bar{display:none;padding:8px 14px;background:var(--sf);border-top:1px solid var(--bd);flex-direction:column;gap:6px;flex-shrink:0}
+.xfer-bar.on{display:flex}
+.xfer-info{display:flex;justify-content:space-between;font-size:11px;color:var(--mu)}
+.xfer-prog{height:3px;background:var(--bd);border-radius:2px;overflow:hidden}
+.xfer-fill{height:100%;background:var(--a);border-radius:2px;transition:width .1s;width:0%}
+
+/* ── NO RTC PROMPT ── */
+.rtc-prompt{
+  margin:12px 14px 0;padding:12px 14px;
+  background:rgba(229,192,123,.07);border:1px solid rgba(229,192,123,.2);
+  border-radius:12px;display:flex;align-items:center;gap:10px;flex-shrink:0;
+}
+.rtc-prompt-text{flex:1;font-size:11px;color:var(--w);line-height:1.5}
+.rtc-prompt-btn{background:var(--w);color:#000;border:none;border-radius:8px;padding:8px 12px;font-family:inherit;font-size:11px;font-weight:700;cursor:pointer;flex-shrink:0}
+
+/* ── MODAL SHEET ── */
+.modal-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:200;flex-direction:column;align-items:center;justify-content:flex-end;backdrop-filter:blur(4px)}
+.modal-bg.on{display:flex}
+.modal-sheet{background:var(--sf);border:1px solid var(--bd);border-radius:20px 20px 0 0;width:100%;max-width:500px;padding:20px;padding-bottom:calc(20px + env(safe-area-inset-bottom,0px));display:flex;flex-direction:column;gap:14px;animation:slideUp .22s ease}
+@keyframes slideUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
+.modal-title{font-size:14px;font-weight:700;text-align:center}
+.modal-tabs{display:flex;gap:0;border:1px solid var(--bd);border-radius:10px;overflow:hidden}
+.modal-tab{flex:1;padding:9px;text-align:center;font-family:inherit;font-size:11px;font-weight:700;cursor:pointer;background:transparent;border:none;color:var(--mu);transition:all .12s}
+.modal-tab.act{background:var(--ad);color:var(--a)}
+.modal-tab-panel{display:none}
+.modal-tab-panel.on{display:flex;flex-direction:column;gap:12px}
+.qr-wrap{background:white;border-radius:12px;padding:16px;display:flex;align-items:center;justify-content:center;margin:0 auto;width:fit-content}
+.my-id-box{background:var(--bg);border:1px solid rgba(0,255,157,.2);border-radius:10px;padding:12px 14px;font-size:11px;color:var(--a);word-break:break-all;cursor:pointer;text-align:center}
+
+/* ── EDITOR ── */
+.editor-modal{display:none;position:fixed;inset:0;z-index:300;background:var(--bg);flex-direction:column}
+.editor-modal.on{display:flex}
+.editor-bar{padding:10px 14px;border-bottom:1px solid var(--bd);background:var(--sf);display:flex;align-items:center;gap:8px;flex-shrink:0}
+.editor-filename{flex:1;font-size:12px;color:var(--a);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#editor-ta{flex:1;resize:none;border:none;outline:none;background:var(--bg);color:var(--tx);font-family:'JetBrains Mono',monospace;font-size:12px;line-height:1.6;padding:14px;overflow-y:auto}
+
+/* ── TOAST ── */
+#toasts{position:fixed;top:calc(20px + env(safe-area-inset-top,0px));left:50%;transform:translateX(-50%);display:flex;flex-direction:column;gap:7px;z-index:999;pointer-events:none;width:calc(100% - 40px);max-width:360px}
+.toast{background:var(--sf);border:1px solid var(--bd);border-radius:10px;padding:11px 16px;font-size:12px;text-align:center;animation:toastIn .2s ease}
+.toast.ok{border-color:rgba(0,255,157,.3);color:var(--a)}.toast.err{border-color:rgba(224,108,117,.3);color:var(--e)}
+@keyframes toastIn{from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:none}}
+
+::-webkit-scrollbar{width:3px}
+::-webkit-scrollbar-thumb{background:var(--bd);border-radius:2px}
+</style>
+</head>
+<body>
+
+<!-- TOPBAR -->
+<div class="topbar" id="topbar">
+  <button class="topbar-back" id="topbar-back" onclick="closeDevice()">‹</button>
+  <span class="topbar-title" id="topbar-title">TOVSA RC</span>
+  <span class="topbar-id" id="my-id-badge" onclick="copyMyId()"></span>
+  <span class="dot" id="conn-dot"></span>
+</div>
+
+<!-- ══ SCREEN: SETTINGS ══ -->
+<div class="scr on" id="s-settings">
+  <div class="section-scroll">
+    <div class="setup-logo">
+      <div class="setup-logo-text">📡 REMOTE</div>
+      <div class="setup-logo-sub">АЛЬТЕРНАТИВНЫЙ КЛИЕНТ TOVSA</div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Мой ID</div>
+      <input id="my-id-inp" placeholder="Генерируется..." readonly style="cursor:default;color:var(--mu);font-size:11px">
+      <button class="btn ghost sm" style="align-self:flex-start" onclick="copyMyId()">📋 Скопировать</button>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Сервер</div>
+      <select id="srv-select" onchange="onSrvChange()">
+        <option value="wss://tovsa-signaling.onrender.com/signal">tovsa-signaling.onrender.com</option>
+        <option value="custom">Другой сервер...</option>
+      </select>
+      <input id="srv-custom" placeholder="wss://..." style="display:none">
+      <button class="btn full" id="btn-connect" onclick="connectToServer()">Подключиться</button>
+    </div>
+
+    <div class="card" style="border-color:rgba(229,192,123,.15)">
+      <div class="card-title" style="color:var(--w)">Сброс ключа</div>
+      <div style="font-size:11px;color:var(--mu);line-height:1.7">Удалить ключ и сгенерировать новый. ID изменится.</div>
+      <button class="btn ghost sm" style="border-color:var(--e);color:var(--e);align-self:flex-start" onclick="resetKey()">🔑 Сбросить</button>
+    </div>
+
+    <div class="card" style="border-color:rgba(0,255,157,.1)">
+      <div class="card-title" style="color:var(--a)">Как добавить устройство?</div>
+      <div style="font-size:11px;color:var(--mu);line-height:1.8">
+        1. Открой приложение на обоих устройствах<br>
+        2. Подключись к одному серверу<br>
+        3. Вкладка <b style="color:var(--tx)">Устройства</b> → <b style="color:var(--tx)">+ Добавить</b><br>
+        4. Покажи QR или введи ID вручную
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ SCREEN: DEVICES ══ -->
+<div class="scr" id="s-devices">
+  <div style="padding:10px 14px;border-bottom:1px solid var(--bd);background:var(--sf);display:flex;align-items:center;gap:8px;flex-shrink:0">
+    <span style="font-size:13px;font-weight:700;flex:1">Устройства</span>
+    <button class="btn sm" id="btn-add" onclick="showAddModal()" disabled>+ Добавить</button>
+  </div>
+  <div class="section-scroll" id="device-list" style="gap:8px">
+    <div style="padding:40px;text-align:center;font-size:12px;color:var(--mu);line-height:2">
+      <div style="font-size:40px;opacity:.2;margin-bottom:12px">📱</div>
+      Нет устройств.<br>Нажми «Подключиться» в настройках,<br>затем «+ Добавить».
+    </div>
+  </div>
+</div>
+
+<!-- ══ DEVICE SCREEN (full-screen, own z-layer) ══ -->
+<div id="s-device">
+  <!-- Header -->
+  <div class="device-header">
+    <div class="device-header-info">
+      <div class="device-header-name" id="dev-name">—</div>
+      <div class="device-header-sub" id="dev-sub">не подключено</div>
+    </div>
+    <span class="rtc-badge" id="dev-rtc-badge">нет RTC</span>
+    <button class="btn sm" id="dev-rtc-btn" onclick="devStartRtc()">🔗 RTC</button>
+  </div>
+
+  <!-- Inner tabs -->
+  <div class="inner-tabbar">
+    <button class="inner-tab act" id="itab-chat"     onclick="switchInnerTab('chat')">💬 Чат</button>
+    <button class="inner-tab"     id="itab-commands" onclick="switchInnerTab('commands')">🖥 Команды</button>
+    <button class="inner-tab"     id="itab-files"    onclick="switchInnerTab('files')">📁 Файлы</button>
+  </div>
+
+  <!-- ── CHAT panel ── -->
+  <div class="inner-panel on" id="ipanel-chat">
+    <div class="msgs" id="msgs"></div>
+    <div class="iarea">
+      <textarea id="msg-inp" placeholder="Сообщение..." onkeydown="onMsgKey(event)" oninput="autoResize(this)" rows="1"></textarea>
+      <button class="send-btn" onclick="sendMsg()">➤</button>
+    </div>
+  </div>
+
+  <!-- ── COMMANDS panel ── -->
+  <div class="inner-panel" id="ipanel-commands">
+    <div id="rtc-prompt" class="rtc-prompt" style="display:none">
+      <div class="rtc-prompt-text">Нужен RTC-канал для отправки команд</div>
+      <button class="rtc-prompt-btn" onclick="devStartRtc()">Подключить</button>
+    </div>
+    <div class="section-scroll" style="padding-top:10px">
+      <div class="r-card">
+        <div class="r-card-title">🌐 Открыть URL</div>
+        <input id="r-url" placeholder="http://localhost:8080" value="http://localhost:8080">
+        <div class="presets">
+          <button class="preset" onclick="setUrl('http://localhost:8080')">:8080</button>
+          <button class="preset" onclick="setUrl('http://localhost:3000')">:3000</button>
+          <button class="preset" onclick="setUrl('http://localhost:5173')">:5173</button>
+          <button class="preset" onclick="setUrl('http://localhost:4000')">:4000</button>
+          <button class="preset" onclick="setUrl('about:blank')">blank</button>
+        </div>
+        <div class="row">
+          <select id="r-target" style="flex:0 0 150px">
+            <option value="_blank">Новая вкладка</option>
+            <option value="_self">Текущая вкладка</option>
+            <option value="popup">Попап</option>
+          </select>
+          <button class="btn" onclick="sendOpenUrl()" style="flex:1">▶ Открыть</button>
+        </div>
+      </div>
+      <div class="r-card">
+        <div class="r-card-title">⚡ Выполнить JS</div>
+        <textarea id="r-js" placeholder="// eval() на удалённом устройстве&#10;document.title = 'Hello!'" style="height:72px;font-size:12px"></textarea>
+        <div class="row">
+          <button class="btn" onclick="sendEval()" style="background:var(--w);flex:2">Выполнить</button>
+          <button class="btn ghost sm" onclick="sendQuery('title')" style="flex:1">Title</button>
+          <button class="btn ghost sm" onclick="sendQuery('url')" style="flex:1">URL</button>
+        </div>
+      </div>
+      <div class="r-card">
+        <div class="r-card-title">📊 Данные устройства</div>
+        <div id="device-info-box" style="font-size:11px;color:var(--mu);line-height:2;background:var(--bg);border:1px solid var(--bd);border-radius:8px;padding:10px 12px">
+          Нажми «Получить» чтобы запросить данные
+        </div>
+        <div class="row">
+          <button class="btn sm" onclick="sendGetDeviceInfo()" style="flex:1">📊 Получить</button>
+          <button class="btn ghost sm" onclick="sendGetLocation()" style="flex:1">📍 Геолокация</button>
+        </div>
+      </div>
+
+      <div class="r-card">
+        <div class="r-card-title">📋 Буфер обмена</div>
+        <div class="row">
+          <button class="btn sm" onclick="sendClipboardRead()" style="flex:1">📋 Прочитать</button>
+          <button class="btn ghost sm" onclick="sendClipboardWrite()" style="flex:1">✏️ Записать</button>
+        </div>
+        <input id="clipboard-text" placeholder="Текст для записи в буфер..." style="display:none">
+        <div id="clipboard-result" style="display:none;font-size:11px;color:var(--a);background:var(--ad);border:1px solid rgba(0,255,157,.2);border-radius:8px;padding:10px 12px;word-break:break-all;cursor:pointer" onclick="copyClipboardResult()" title="Нажми чтобы скопировать"></div>
+      </div>
+
+      <div class="r-card">
+        <div class="r-card-title">📸 Камера</div>
+        <div id="camera-preview" style="display:none;border-radius:10px;overflow:hidden;background:#000;aspect-ratio:4/3;max-height:200px">
+          <img id="camera-img" style="width:100%;height:100%;object-fit:cover" alt="">
+        </div>
+        <div id="camera-hint" style="font-size:11px;color:var(--mu)">Делает снимок с фронтальной или основной камеры устройства</div>
+        <div class="row">
+          <button class="btn sm" onclick="sendCameraShot('user')" style="flex:1">🤳 Фронт</button>
+          <button class="btn sm" onclick="sendCameraShot('environment')" style="flex:1">📷 Основная</button>
+        </div>
+      </div>
+
+      <div class="r-card">
+        <div class="r-card-title" style="justify-content:space-between">
+          <span>📋 Лог</span>
+          <button class="btn ghost sm" onclick="copyLog()" style="padding:2px 8px;font-size:9px">копировать</button>
+        </div>
+        <div class="r-log" id="r-log"><span style="color:var(--mu)">Нет записей...</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── FILES panel ── -->
+  <div class="inner-panel" id="ipanel-files">
+    <!-- My folder (host mode) -->
+    <div id="fm-my" style="display:flex;flex-direction:column;flex:1;min-height:0;overflow:hidden">
+      <!-- Toggle: my folder vs remote -->
+      <div style="display:flex;border-bottom:1px solid var(--bd);flex-shrink:0;background:var(--sf)">
+        <button id="fm-toggle-my" onclick="fmSwitch('my')" style="flex:1;padding:8px;font-family:inherit;font-size:11px;font-weight:700;border:none;background:var(--ad);color:var(--a);border-bottom:2px solid var(--a);cursor:pointer">📁 Моя папка</button>
+        <button id="fm-toggle-remote" onclick="fmSwitch('remote')" style="flex:1;padding:8px;font-family:inherit;font-size:11px;font-weight:700;border:none;background:transparent;color:var(--mu);border-bottom:2px solid transparent;cursor:pointer">🖥 Устройство</button>
+      </div>
+
+      <!-- My folder view -->
+      <div id="fm-local" style="display:flex;flex-direction:column;flex:1;min-height:0;overflow:hidden">
+        <div id="fm-no-folder" style="flex:1;min-height:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:32px;text-align:center">
+          <div style="font-size:44px;opacity:.2">📁</div>
+          <div style="font-size:13px;font-weight:700;color:var(--mu)">Папка не выбрана</div>
+          <div style="font-size:11px;color:var(--mu);line-height:1.7;opacity:.7">Выбери папку — другое устройство сможет управлять файлами</div>
+          <button class="btn" onclick="fsPickFolder()" style="max-width:220px">📁 Открыть папку</button>
+          <button class="btn ghost" onclick="fsRestoreFolder()" id="btn-restore-folder" style="max-width:220px;display:none">🔓 Восстановить</button>
+        </div>
+        <div id="fm-host-open" style="display:none;flex-direction:column;flex:1;min-height:0;overflow:hidden">
+          <div class="fm-bar">
+            <span class="host-badge">📁 МОЯ</span>
+            <span class="fm-path" id="fm-host-path">/</span>
+            <button class="btn ghost sm" onclick="fsPickFolder()">Сменить</button>
+          </div>
+          <div class="fm-list" id="fm-host-list"></div>
+          <div class="fm-actions">
+            <button class="btn sm" onclick="fsMkdir()">📂 Папка</button>
+            <button class="btn sm" onclick="fsNewFile()">📄 Файл</button>
+            <button class="btn ghost sm" onclick="fsGoUp()" id="btn-go-up" disabled>↑ Назад</button>
+          </div>
+          <div class="xfer-bar" id="host-xfer-bar">
+            <div class="xfer-info"><span id="host-xfer-name"></span><span id="host-xfer-pct">0%</span></div>
+            <div class="xfer-prog"><div class="xfer-fill" id="host-xfer-fill"></div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Remote folder view -->
+      <div id="fm-remote" style="display:none;flex-direction:column;flex:1;min-height:0;overflow:hidden">
+        <div class="fm-bar">
+          <span class="host-badge" style="background:rgba(0,217,255,.08);border-color:rgba(0,217,255,.25);color:var(--a)">🖥 УДАЛЁННО</span>
+          <span class="fm-path" id="fm-ctrl-path">/</span>
+          <button class="btn sm" onclick="fsCtrlRefresh()">↻</button>
+        </div>
+        <div id="fm-ctrl-no-rtc" style="flex:1;min-height:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:32px;text-align:center">
+          <div style="font-size:40px;opacity:.2">🔗</div>
+          <div style="font-size:13px;font-weight:700;color:var(--mu)">Нужен RTC</div>
+          <div style="font-size:11px;color:var(--mu);opacity:.7">Подключи RTC чтобы видеть файлы устройства</div>
+          <button class="btn" onclick="devStartRtc();fmSwitch('remote')" style="max-width:220px">🔗 Подключить RTC</button>
+        </div>
+        <div id="fm-ctrl-open" style="display:none;flex-direction:column;flex:1;min-height:0;overflow:hidden">
+          <div class="fm-list" id="fm-ctrl-list"><div class="fm-empty">Загрузка...</div></div>
+          <div class="fm-actions">
+            <button class="btn sm" onclick="fsCtrlMkdir()">📂 Папка</button>
+            <button class="btn sm" onclick="fsCtrlNewFile()">📄 Файл</button>
+            <button class="btn ghost sm" onclick="fsCtrlGoUp()" id="btn-ctrl-up" disabled>↑ Назад</button>
+          </div>
+          <div class="xfer-bar" id="ctrl-xfer-bar">
+            <div class="xfer-info"><span id="ctrl-xfer-name"></span><span id="ctrl-xfer-pct">0%</span></div>
+            <div class="xfer-prog"><div class="xfer-fill" id="ctrl-xfer-fill"></div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- EDITOR MODAL -->
+<div class="editor-modal" id="editor-modal">
+  <div class="editor-bar">
+    <button style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--mu);padding:0" onclick="closeEditor()">✕</button>
+    <span class="editor-filename" id="editor-fname">—</span>
+    <button class="btn sm" onclick="editorSave()" id="btn-editor-save">💾 Сохранить</button>
+  </div>
+  <textarea id="editor-ta"></textarea>
+</div>
+
+<!-- ADD DEVICE MODAL -->
+<div class="modal-bg" id="add-modal" onclick="closeAddModal(event)">
+  <div class="modal-sheet" onclick="event.stopPropagation()">
+    <div class="modal-title">Добавить устройство</div>
+    <div class="modal-tabs">
+      <button class="modal-tab act" id="mt-qr"     onclick="switchModalTab('qr')">QR-код</button>
+      <button class="modal-tab"     id="mt-manual" onclick="switchModalTab('manual')">Вручную</button>
+      <button class="modal-tab"     id="mt-scan"   onclick="switchModalTab('scan')">Ввести ID</button>
+    </div>
+    <div class="modal-tab-panel on" id="mtp-qr">
+      <div style="font-size:11px;color:var(--mu);text-align:center;line-height:1.6">Покажи QR второму устройству — оно сканирует и добавит тебя</div>
+      <div class="qr-wrap" id="qr-wrap"></div>
+      <div class="my-id-box" id="qr-id-text" onclick="copyMyId()">—</div>
+    </div>
+    <div class="modal-tab-panel" id="mtp-manual">
+      <input id="add-name" placeholder="Имя устройства">
+      <input id="add-id"   placeholder="ID устройства (tvp-...)">
+      <button class="btn full" onclick="doAddPeer()">Добавить</button>
+    </div>
+    <div class="modal-tab-panel" id="mtp-scan">
+      <div style="font-size:11px;color:var(--mu);text-align:center;line-height:1.6">Попроси второе устройство открыть QR-код и введи его ID</div>
+      <input id="scan-id"   placeholder="Вставь ID устройства...">
+      <input id="scan-name" placeholder="Имя (необязательно)">
+      <button class="btn full" onclick="doScanAdd()">Добавить</button>
+    </div>
+    <button class="btn ghost full" onclick="closeAddModal()">Отмена</button>
+  </div>
+</div>
+
+<!-- TABBAR -->
+<div class="tabbar" id="tabbar">
+  <div id="tab-pill"></div>
+  <button class="tab act" id="tab-settings" onclick="goTab('settings')">
+    <div class="tab-icon">⚙️</div>
+    <div class="tab-label">НАСТРОЙКИ</div>
+  </button>
+  <button class="tab" id="tab-devices" onclick="goTab('devices')">
+    <div class="tab-icon-wrap">
+      <div class="tab-icon">📱</div>
+      <div class="tab-badge" id="devices-badge"></div>
+    </div>
+    <div class="tab-label">УСТРОЙСТВА</div>
+  </button>
+</div>
+
+<div id="toasts"></div>
+
+<script>
+'use strict';
+
+// ── State ─────────────────────────────────────────────
+let ws = null, myId = '', isOpen = false;
+let currentDevice = null;   // peerId of open device screen
+const peers = {};           // id → { id, name, emoji, online }
+const rtcs  = {};           // id → { pc, dc, state, pending }
+const _dbgBuf = [];
+
+// ── Utils ─────────────────────────────────────────────
+function $(id){ return document.getElementById(id); }
+
+function toast(msg, type='', dur=2600){
+  const c=$('toasts'), el=document.createElement('div');
+  el.className='toast'+(type?' '+type:''); el.textContent=msg;
+  c.appendChild(el);
+  setTimeout(()=>{ el.style.opacity='0'; el.style.transition='opacity .25s'; setTimeout(()=>el.remove(),250); }, dur);
+}
+
+function esc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+function fmtSize(n){ if(n<1024)return n+'B'; if(n<1048576)return (n/1024).toFixed(1)+'KB'; return (n/1048576).toFixed(1)+'MB'; }
+function fmtDate(ts){ return new Date(ts).toLocaleDateString('ru',{day:'numeric',month:'short'}); }
+
+function dbg(msg, type=''){
+  const t=new Date().toLocaleTimeString('ru',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+  _dbgBuf.push({t,msg,type});
+  if(_dbgBuf.length>300) _dbgBuf.shift();
+}
+
+// Universal clipboard copy — works on HTTP too
+function copyText(text, successMsg){
+  const msg = successMsg || 'Скопировано';
+  if(navigator.clipboard && window.isSecureContext){
+    navigator.clipboard.writeText(text).then(()=>toast(msg,'ok')).catch(()=>_copyFallback(text,msg));
+  } else {
+    _copyFallback(text, msg);
+  }
+}
+function _copyFallback(text, msg){
+  const ta = document.createElement('textarea');
+  ta.value = text;
+  ta.style.cssText = 'position:fixed;left:-9999px;top:-9999px;opacity:0';
+  document.body.appendChild(ta);
+  ta.focus(); ta.select();
+  try{
+    document.execCommand('copy');
+    toast(msg, 'ok');
+  }catch(_){ toast('Не удалось скопировать'); }
+  ta.remove();
+}
+
+function copyLog(){
+  const logEl=$('r-log');
+  const lines=Array.from(logEl.children).map(c=>c.textContent).join('\n');
+  const all=_dbgBuf.map(({t,msg})=>`[${t}] ${msg}`).join('\n')+(lines?'\n\n--- CMD LOG ---\n'+lines:'');
+  copyText(all, 'Лог скопирован');
+}
+
+function autoResize(el){ el.style.height='auto'; el.style.height=Math.min(el.scrollHeight,110)+'px'; }
+
+function tsNow(){ return new Date().toLocaleTimeString('ru',{hour:'2-digit',minute:'2-digit'}); }
+
+// ── Tabs ──────────────────────────────────────────────
+function goTab(name){
+  ['settings','devices'].forEach(t=>{
+    $('tab-'+t).classList.toggle('act',t===name);
+    $('s-'+t).classList.toggle('on',t===name);
+  });
+  movePill('tab-'+name);
+  // Hide device screen when switching main tabs
+  // (device screen is separate layer, stays open)
+}
+
+function movePill(tabId){
+  const pill=$('tab-pill'), bar=$('tabbar'), tab=$(tabId);
+  if(!pill||!bar||!tab) return;
+  const br=bar.getBoundingClientRect(), tr=tab.getBoundingClientRect();
+  pill.style.left=(tr.left-br.left)+'px';
+  pill.style.width=tr.width+'px';
+}
+
+// ── Device screen ─────────────────────────────────────
+function openDevice(id){
+  currentDevice = id;
+  const p = peers[id];
+  // Topbar
+  $('topbar-back').style.display='block';
+  $('topbar-title').textContent = p?.name || id.slice(0,16);
+  $('my-id-badge').style.display='none';
+  $('conn-dot').style.display='none';
+  // Hide tabbar and active screen
+  $('tabbar').style.display='none';
+  document.querySelectorAll('.scr.on').forEach(el=>el.style.visibility='hidden');
+  // Reset to chat tab
+  switchInnerTab('chat');
+  // Update device info
+  const rtc = rtcs[id];
+  $('dev-sub').textContent = p?.online ? 'онлайн' : 'офлайн';
+  // Show device screen
+  $('s-device').classList.add('on');
+  updateDevRtcBadge(id);
+}
+
+function closeDevice(){
+  $('s-device').classList.remove('on');
+  document.querySelectorAll('.scr').forEach(el=>el.style.visibility='');
+  $('tabbar').style.display='flex';
+  $('topbar-back').style.display='none';
+  $('topbar-title').textContent='TOVSA RC';
+  $('my-id-badge').style.display=isOpen?'inline-block':'none';
+  $('conn-dot').style.display='';
+  currentDevice=null;
+  _ctrlPath=[];
+  requestAnimationFrame(()=>{ const a=document.querySelector('.tab.act'); if(a) movePill(a.id); });
+}
+
+function switchInnerTab(name){
+  ['chat','commands','files'].forEach(t=>{
+    $('itab-'+t).classList.toggle('act',t===name);
+    $('ipanel-'+t).classList.toggle('on',t===name);
+  });
+  // When switching to files, check RTC state for remote panel
+  if(name==='files') fmCheckRemoteState();
+}
+
+function renderDeviceChat(id){
+  // msgs are global — clear and add system msg
+  // (in a real app we'd have per-device history)
+}
+
+function devStartRtc(){
+  if(!currentDevice) return;
+  if(!isOpen){ toast('Нет соединения с сервером','err'); return; }
+  if(rtcs[currentDevice]?.state==='open'){ toast('Уже подключено'); return; }
+  createOffer(currentDevice);
+}
+
+function updateDevRtcBadge(id){
+  const badge=$('dev-rtc-badge'), btn=$('dev-rtc-btn');
+  const rtc=rtcs[id||currentDevice];
+  const s=rtc?.state||'';
+  const p=peers[id||currentDevice];
+  if(s==='open'){
+    badge.className='rtc-badge open'; badge.textContent='RTC ●';
+    if(btn){ btn.textContent='✓ RTC'; btn.disabled=true; }
+    $('rtc-prompt').style.display='none';
+    $('dev-sub').textContent='🔗 RTC подключён';
+  } else if(s==='connecting'){
+    badge.className='rtc-badge connecting'; badge.textContent='RTC...';
+    if(btn){ btn.textContent='⏳...'; btn.disabled=true; }
+    $('rtc-prompt').style.display='flex';
+    $('dev-sub').textContent='Подключаю RTC...';
+  } else {
+    badge.className='rtc-badge'; badge.textContent='нет RTC';
+    if(btn){ btn.textContent='🔗 RTC'; btn.disabled=false; }
+    $('rtc-prompt').style.display='flex';
+    $('dev-sub').textContent=p?.online?'онлайн':'офлайн';
+  }
+  renderDeviceList();
+}
+
+// ── Auth & Key ────────────────────────────────────────
+let _authPrivKey=null, _authPubRaw=null;
+
+async function loadOrGenKey(){
+  try{
+    const saved=localStorage.getItem('tvrc_key');
+    if(saved){
+      const jwk=JSON.parse(saved);
+      _authPrivKey=await crypto.subtle.importKey('jwk',jwk,{name:'Ed25519'},false,['sign']);
+      const pubJwk=JSON.parse(localStorage.getItem('tvrc_pubkey')||'null');
+      if(pubJwk){
+        const pk=await crypto.subtle.importKey('jwk',pubJwk,{name:'Ed25519'},true,[]);
+        _authPubRaw=new Uint8Array(await crypto.subtle.exportKey('raw',pk));
+      }
+    }
+  }catch(_){ _authPrivKey=null; _authPubRaw=null; }
+
+  if(!_authPrivKey||!_authPubRaw){
+    const kp=await crypto.subtle.generateKey({name:'Ed25519'},true,['sign','verify']);
+    _authPrivKey=kp.privateKey;
+    _authPubRaw=new Uint8Array(await crypto.subtle.exportKey('raw',kp.publicKey));
+    localStorage.setItem('tvrc_key',JSON.stringify(await crypto.subtle.exportKey('jwk',kp.privateKey)));
+    localStorage.setItem('tvrc_pubkey',JSON.stringify(await crypto.subtle.exportKey('jwk',kp.publicKey)));
+    dbg('Новый Ed25519 ключ сгенерирован','ok');
+  }
+  const hash=await crypto.subtle.digest('SHA-256',_authPubRaw);
+  myId='tvp-'+Array.from(new Uint8Array(hash)).map(b=>b.toString(16).padStart(2,'0')).join('').slice(0,48);
+  localStorage.setItem('tvrc_my_id',myId);
+  $('my-id-inp').value=myId;
+  $('my-id-badge').textContent=myId;
+  dbg('ID: '+myId,'info');
+}
+
+async function signAuth(nonce){
+  const msg=new TextEncoder().encode(`tovsa-auth:${nonce}:${myId}`);
+  const sig=await crypto.subtle.sign('Ed25519',_authPrivKey,msg);
+  return { pub:Array.from(_authPubRaw), sig:Array.from(new Uint8Array(sig)) };
+}
+
+async function resetKey(){
+  if(!confirm('Удалить ключ и сгенерировать новый? ID изменится.')) return;
+  localStorage.removeItem('tvrc_key'); localStorage.removeItem('tvrc_pubkey'); localStorage.removeItem('tvrc_my_id');
+  _authPrivKey=null; _authPubRaw=null;
+  await loadOrGenKey();
+  generateQr();
+  if(ws){ try{ws.close();}catch(_){} ws=null; isOpen=false; setDot(''); }
+  toast('Новый ключ создан. Переподключитесь.','ok');
+}
+
+// ── Connection ────────────────────────────────────────
+function onSrvChange(){ $('srv-custom').style.display=$('srv-select').value==='custom'?'':'none'; }
+function getServerUrl(){ return $('srv-select').value==='custom'?$('srv-custom').value.trim():$('srv-select').value; }
+function setDot(cls){ const d=$('conn-dot'); d.className='dot'+(cls?' '+cls:''); }
+
+function connectToServer(){
+  const url=getServerUrl();
+  if(!url){ toast('Введи URL','err'); return; }
+  localStorage.setItem('tvrc_srv',url);
+  $('btn-connect').disabled=true; $('btn-connect').textContent='Подключаюсь...';
+  setDot(''); dbg('WS → '+url,'info');
+  if(ws){ try{ws.close(1000,'reconnect');}catch(_){} ws=null; }
+  ws=new WebSocket(url);
+  ws.onopen=()=>{ setDot('act'); dbg('WS открыт','ok'); };
+  ws.onclose=(e)=>{
+    setDot(''); isOpen=false;
+    $('btn-connect').disabled=false; $('btn-connect').textContent='Подключиться';
+    $('btn-add').disabled=true;
+    dbg(`WS закрыт: ${e.code} ${e.reason||''}`,e.code===1000?'':'err');
+    if(e.code!==1000&&e.code!==1001) toast(`Разрыв: ${e.code}${e.reason?' — '+e.reason:''}` ,'err');
+  };
+  ws.onerror=()=>{ setDot(''); $('btn-connect').disabled=false; $('btn-connect').textContent='Подключиться'; toast('Ошибка подключения','err'); };
+  ws.onmessage=(e)=>{ let m; try{m=JSON.parse(e.data);}catch{return;} handleServer(m); };
+}
+
+function wsSend(msg){
+  if(!ws||ws.readyState!==WebSocket.OPEN){ toast('Нет соединения','err'); return false; }
+  ws.send(JSON.stringify(msg));
+  if(msg.type!=='PONG'&&msg.type!=='AUTH') dbg('→ '+msg.type+(msg.to?' to='+String(msg.to).slice(0,14):'')+(msg.kind?' '+msg.kind:''),'info');
+  return true;
+}
+
+function handleServer(m){
+  dbg('← '+m.type+(m.code?' '+m.code:''),'info');
+  switch(m.type){
+    case 'HELLO_REQ': wsSend({type:'HELLO',id:myId,v:5}); break;
+    case 'CHALLENGE': handleChallenge(m.nonce); break;
+    case 'OPEN':
+      isOpen=true; setDot('on');
+      $('my-id-badge').style.display='inline-block';
+      $('btn-connect').disabled=false; $('btn-connect').textContent='Переподключить';
+      $('btn-add').disabled=false;
+      dbg('OPEN ✓','ok'); toast('Подключено!','ok');
+      schedulePresence(); break;
+    case 'ERR':
+      dbg('ERR '+m.code+' '+(m.msg||''),'err');
+      toast('Ошибка '+m.code+': '+(m.msg||m.reason||''),'err');
+      $('btn-connect').disabled=false; $('btn-connect').textContent='Подключиться'; break;
+    case 'RELAY': dbg('← RELAY '+m.kind+' from='+String(m.from).slice(0,14),'info'); handleRelay(m.from,m.kind,m.data); break;
+    case 'RELAY-ACK': if(!m.delivered) toast('Устройство недоступно: '+String(m.to).slice(0,16)); break;
+    case 'PRESENCE-RESULT': handlePresenceResult(m); break;
+    case 'PING': wsSend({type:'PONG'}); break;
+  }
+}
+
+async function handleChallenge(nonce){
+  if(!nonce){ dbg('CHALLENGE без nonce','err'); return; }
+  try{ const {pub,sig}=await signAuth(nonce); wsSend({type:'AUTH',pub,sig}); }
+  catch(e){ dbg('AUTH error: '+e.message,'err'); toast('Ошибка AUTH','err'); }
+}
+
+// ── Presence ──────────────────────────────────────────
+let _presTimer=null;
+function schedulePresence(){ if(_presTimer)clearInterval(_presTimer); doPresence(); _presTimer=setInterval(doPresence,15000); }
+function doPresence(){ const ids=Object.keys(peers); if(!ids.length||!isOpen)return; wsSend({type:'PRESENCE',reqId:'p'+Date.now(),ids}); }
+function handlePresenceResult(m){
+  const online=Array.isArray(m.online)?m.online:[];
+  let ch=false;
+  for(const id of Object.keys(peers)){ const was=peers[id].online; peers[id].online=online.includes(id); if(was!==peers[id].online)ch=true; }
+  if(ch) renderDeviceList();
+}
+
+// ── WebRTC ────────────────────────────────────────────
+const RTC_CFG={iceServers:[{urls:'stun:stun.l.google.com:19302'},{urls:'stun:stun1.l.google.com:19302'}]};
+
+function getRtc(id){
+  if(rtcs[id]) return rtcs[id];
+  const entry={pc:new RTCPeerConnection(RTC_CFG),dc:null,state:'new',pending:[]};
+  rtcs[id]=entry;
+  entry.pc.onicecandidate=e=>{ if(e.candidate) wsSend({type:'RELAY',to:id,kind:'ice',data:e.candidate}); };
+  entry.pc.onconnectionstatechange=()=>{
+    const s=entry.pc.connectionState;
+    dbg('RTC ['+id.slice(0,14)+'] → '+s,s==='connected'?'ok':s==='failed'?'err':'info');
+    if(s==='connected') entry.state='open';
+    else if(['failed','disconnected','closed'].includes(s)) entry.state='closed';
+    if(currentDevice===id) updateDevRtcBadge(id);
+    renderDeviceList();
+    // Auto-refresh remote file list when RTC connects
+    if(s==='connected'&&currentDevice===id){
+      const remoteVisible=$('fm-remote')?.style.display!=='none';
+      if(remoteVisible) fsCtrlStartBrowse();
+    }
+  };
+  entry.pc.ondatachannel=e=>setupDc(id,e.channel);
+  return entry;
+}
+
+function setupDc(id,dc){
+  const entry=rtcs[id]; if(!entry) return;
+  entry.dc=dc;
+  dc.onopen=()=>{
+    entry.state='open';
+    if(currentDevice===id){ updateDevRtcBadge(id); fmCheckRemoteState(); }
+    renderDeviceList();
+    rlog('✓ DataChannel открыт','ok');
+    toast('RTC подключён!','ok');
+  };
+  dc.onclose=()=>{
+    entry.state='closed';
+    if(currentDevice===id) updateDevRtcBadge(id);
+    renderDeviceList();
+  };
+  dc.onmessage=e=>{ let m; try{m=JSON.parse(e.data);}catch{return;} handleDc(id,m); };
+}
+
+async function createOffer(id){
+  const entry=getRtc(id);
+  const dc=entry.pc.createDataChannel('tvrc',{ordered:true});
+  setupDc(id,dc);
+  entry.state='connecting';
+  if(currentDevice===id) updateDevRtcBadge(id);
+  try{
+    const offer=await entry.pc.createOffer();
+    await entry.pc.setLocalDescription(offer);
+    wsSend({type:'RELAY',to:id,kind:'offer',data:offer});
+    dbg('RTC offer → '+id.slice(0,14),'info');
+  }catch(e){ dbg('createOffer error: '+e.message,'err'); toast('Ошибка RTC','err'); }
+}
+
+async function handleRelay(from,kind,data){
+  if(!peers[from]){ peers[from]={id:from,name:from,online:true,emoji:randomEmoji()}; savePeers(); renderDeviceList(); }
+  const entry=getRtc(from);
+  if(kind==='offer'){
+    try{
+      await entry.pc.setRemoteDescription(data);
+      const ans=await entry.pc.createAnswer();
+      await entry.pc.setLocalDescription(ans);
+      wsSend({type:'RELAY',to:from,kind:'answer',data:ans});
+      for(const c of entry.pending) await entry.pc.addIceCandidate(c).catch(()=>{});
+      entry.pending=[];
+      rlog('← offer от '+from.slice(0,14)+', отвечаю','ok');
+    }catch(e){ dbg('answer error: '+e.message,'err'); }
+  } else if(kind==='answer'){
+    try{ await entry.pc.setRemoteDescription(data); for(const c of entry.pending) await entry.pc.addIceCandidate(c).catch(()=>{}); entry.pending=[]; }
+    catch(e){ dbg('setRemote error: '+e.message,'err'); }
+  } else if(kind==='ice'){
+    if(entry.pc.remoteDescription) await entry.pc.addIceCandidate(data).catch(()=>{});
+    else entry.pending.push(data);
+  } else if(kind==='leave'){
+    try{entry.pc.close();}catch(_){}
+    entry.state='closed';
+    if(currentDevice===from) updateDevRtcBadge(from);
+    renderDeviceList();
+  }
+}
+
+// ── DataChannel routing ───────────────────────────────
+function dcSend(id,msg){
+  const e=rtcs[id||currentDevice];
+  if(!e||!e.dc||e.dc.readyState!=='open'){ toast('RTC не подключён','err'); return false; }
+  e.dc.send(JSON.stringify(msg)); return true;
+}
+
+function handleDc(from,msg){
+  switch(msg.type){
+    case 'chat': addMsg(from,msg.text,'in'); break;
+    case 'remote_result': rlog('← '+msg.cmd+': '+String(msg.result).slice(0,200),'in'); toast('✓ '+String(msg.result).slice(0,50),'ok'); break;
+    case 'remote_error':  rlog('✗ '+msg.error,'err'); toast('Ошибка: '+msg.error,'err'); break;
+    case 'remote_open_url': execOpenUrl(from,msg); break;
+    case 'remote_eval':     execEval(from,msg);    break;
+    case 'remote_query':    execQuery(from,msg);   break;
+    case 'remote_device_info': execDeviceInfo(from,msg); break;
+    case 'remote_location':    execLocation(from,msg);   break;
+    case 'remote_clipboard_read':  execClipboardRead(from,msg);  break;
+    case 'remote_clipboard_write': execClipboardWrite(from,msg); break;
+    case 'remote_camera':          execCamera(from,msg);         break;
+    // Results back to controller
+    case 'remote_device_info_res': ctrlHandleDeviceInfo(msg); break;
+    case 'remote_location_res':    ctrlHandleLocation(msg);    break;
+    case 'remote_clipboard_res':   ctrlHandleClipboard(msg);   break;
+    case 'remote_camera_res':      ctrlHandleCamera(msg);      break;
+    // FS commands (host receives)
+    case 'fs_list':      fsExecList(from,msg);      break;
+    case 'fs_read':      fsExecRead(from,msg);      break;
+    case 'fs_write':     fsExecWrite(from,msg);     break;
+    case 'fs_delete':    fsExecDelete(from,msg);    break;
+    case 'fs_mkdir':     fsExecMkdir(from,msg);     break;
+    case 'fs_rename':    fsExecRename(from,msg);    break;
+    case 'fs_open':      fsExecOpen(from,msg);      break;
+    case 'fs_chunk':     fsExecChunk(from,msg);     break;
+    case 'fs_chunk_end': fsExecChunkEnd(from,msg);  break;
+    // FS responses (controller receives)
+    case 'fs_list_res':   fsCtrlHandleList(msg);      break;
+    case 'fs_read_chunk': fsCtrlHandleReadChunk(msg); break;
+    case 'fs_read_end':   fsCtrlHandleReadEnd(msg);   break;
+    case 'fs_ok':         fsCtrlHandleOk(msg);        break;
+    case 'fs_err':        fsCtrlHandleErr(msg);       break;
+  }
+}
+
+// ── Remote exec (THIS device executes) ───────────────
+function execOpenUrl(from,msg){
+  try{
+    const t=msg.target||'_blank';
+    if(t==='popup') window.open(msg.url,'_blank','width=1200,height=800');
+    else window.open(msg.url,t);
+    dcSend(from,{type:'remote_result',cmd:'open_url',result:'opened: '+msg.url,reqId:msg.reqId});
+    rlog('← открываю: '+msg.url,'in');
+  }catch(e){ dcSend(from,{type:'remote_error',error:String(e),reqId:msg.reqId}); }
+}
+function execEval(from,msg){
+  try{ const r=eval(msg.code); dcSend(from,{type:'remote_result',cmd:'eval',result:String(r),reqId:msg.reqId}); }
+  catch(e){ dcSend(from,{type:'remote_error',error:String(e),reqId:msg.reqId}); }
+}
+function execQuery(from,msg){
+  const r=msg.query==='title'?document.title:window.location.href;
+  dcSend(from,{type:'remote_result',cmd:msg.query,result:r,reqId:msg.reqId});
+}
+
+// ── Exec: device info ────────────────────────────────
+async function execDeviceInfo(from, msg){
+  try{
+    const info = {};
+    // Battery
+    if(navigator.getBattery){
+      try{
+        const b = await navigator.getBattery();
+        info.battery = {
+          level: Math.round(b.level*100)+'%',
+          charging: b.charging ? '⚡ заряжается' : '🔋 от батареи',
+          chargingTime: b.chargingTime===Infinity ? '—' : Math.round(b.chargingTime/60)+' мин до зарядки',
+          dischargingTime: b.dischargingTime===Infinity ? '—' : Math.round(b.dischargingTime/60)+' мин до разряда',
+        };
+      }catch(_){ info.battery = 'недоступно'; }
+    } else { info.battery = 'API не поддерживается'; }
+    // Network
+    const conn = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+    if(conn){
+      info.network = {
+        type: conn.effectiveType || conn.type || '?',
+        downlink: conn.downlink ? conn.downlink+'Mbps' : '?',
+        rtt: conn.rtt ? conn.rtt+'ms' : '?',
+        saveData: conn.saveData ? 'режим экономии' : 'обычный',
+      };
+    } else { info.network = 'API не поддерживается'; }
+    // Memory
+    if(performance.memory){
+      info.memory = {
+        used: Math.round(performance.memory.usedJSHeapSize/1048576)+'MB',
+        total: Math.round(performance.memory.jsHeapSizeLimit/1048576)+'MB',
+      };
+    }
+    // Screen
+    info.screen = {
+      size: screen.width+'×'+screen.height,
+      dpr: window.devicePixelRatio,
+      orientation: screen.orientation?.type || '?',
+    };
+    // Platform
+    info.platform = {
+      ua: navigator.userAgent.slice(0,80),
+      lang: navigator.language,
+      online: navigator.onLine ? 'онлайн' : 'офлайн',
+      cores: navigator.hardwareConcurrency || '?',
+    };
+    dcSend(from, {type:'remote_device_info_res', reqId:msg.reqId, info});
+  }catch(e){ dcSend(from, {type:'remote_error', error:e.message, reqId:msg.reqId}); }
+}
+
+// ── Exec: geolocation ─────────────────────────────────
+function execLocation(from, msg){
+  if(!navigator.geolocation){
+    dcSend(from, {type:'remote_error', error:'Геолокация не поддерживается', reqId:msg.reqId}); return;
+  }
+  navigator.geolocation.getCurrentPosition(
+    pos => dcSend(from, {type:'remote_location_res', reqId:msg.reqId, coords:{
+      lat: pos.coords.latitude,
+      lon: pos.coords.longitude,
+      accuracy: Math.round(pos.coords.accuracy),
+      altitude: pos.coords.altitude,
+    }}),
+    err => dcSend(from, {type:'remote_error', error:'Геолокация: '+err.message, reqId:msg.reqId}),
+    {enableHighAccuracy:true, timeout:10000}
+  );
+}
+
+// ── Exec: clipboard read ──────────────────────────────
+async function execClipboardRead(from, msg){
+  try{
+    const text = await navigator.clipboard.readText();
+    dcSend(from, {type:'remote_clipboard_res', reqId:msg.reqId, text, action:'read'});
+  }catch(e){ dcSend(from, {type:'remote_error', error:'Буфер: '+e.message, reqId:msg.reqId}); }
+}
+
+// ── Exec: clipboard write ─────────────────────────────
+async function execClipboardWrite(from, msg){
+  try{
+    await navigator.clipboard.writeText(msg.text||'');
+    dcSend(from, {type:'remote_clipboard_res', reqId:msg.reqId, text:msg.text, action:'write'});
+  }catch(e){ dcSend(from, {type:'remote_error', error:'Буфер: '+e.message, reqId:msg.reqId}); }
+}
+
+// ── Exec: camera shot ─────────────────────────────────
+async function execCamera(from, msg){
+  try{
+    const facing = msg.facing || 'environment';
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video:{facingMode: facing, width:{ideal:1280}, height:{ideal:720}},
+      audio: false,
+    });
+    const video = document.createElement('video');
+    video.srcObject = stream;
+    video.setAttribute('playsinline','');
+    await new Promise(r => { video.onloadedmetadata = r; video.play(); });
+    // Wait a frame for camera to adjust
+    await new Promise(r => setTimeout(r, 400));
+    const canvas = document.createElement('canvas');
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    canvas.getContext('2d').drawImage(video, 0, 0);
+    stream.getTracks().forEach(t => t.stop());
+    const jpeg = canvas.toDataURL('image/jpeg', 0.82);
+    dcSend(from, {type:'remote_camera_res', reqId:msg.reqId, dataUrl:jpeg, facing});
+  }catch(e){ dcSend(from, {type:'remote_error', error:'Камера: '+e.message, reqId:msg.reqId}); }
+}
+
+// ── Send commands ─────────────────────────────────────
+function sendOpenUrl(){
+  const url=$('r-url').value.trim(), target=$('r-target').value;
+  if(!url){toast('Введи URL');return;}
+  if(dcSend(currentDevice,{type:'remote_open_url',url,target,reqId:Date.now()})) rlog('→ открыть '+url,'ok');
+}
+function sendEval(){
+  const code=$('r-js').value.trim(); if(!code){toast('Введи код');return;}
+  if(dcSend(currentDevice,{type:'remote_eval',code,reqId:Date.now()})) rlog('→ eval: '+code.slice(0,50),'ok');
+}
+function sendQuery(q){ if(dcSend(currentDevice,{type:'remote_query',query:q,reqId:Date.now()})) rlog('→ '+q,'ok'); }
+function setUrl(u){ $('r-url').value=u; }
+
+// ── Send: device info ─────────────────────────────────
+function sendGetDeviceInfo(){
+  if(dcSend(currentDevice,{type:'remote_device_info',reqId:'di'+Date.now()}))
+    rlog('→ запрос данных устройства...','ok');
+}
+function ctrlHandleDeviceInfo(msg){
+  const info = msg.info;
+  let html = '';
+  const fmt = (obj) => {
+    if(typeof obj === 'string') return obj;
+    return Object.entries(obj).map(([k,v])=>`<b style="color:var(--tx)">${k}:</b> ${v}`).join(' · ');
+  };
+  for(const [section, data] of Object.entries(info)){
+    const icons = {battery:'🔋',network:'📶',memory:'💾',screen:'🖥',platform:'📱'};
+    html += `<div style="margin-bottom:6px"><span style="color:var(--a)">${icons[section]||'•'} ${section}</span><br><span style="opacity:.8">${fmt(data)}</span></div>`;
+  }
+  const box = $('device-info-box');
+  box.style.cssText = 'font-size:11px;color:var(--mu);line-height:1.9;background:var(--bg);border:1px solid var(--bd);border-radius:8px;padding:10px 12px';
+  box.innerHTML = html;
+  rlog('← данные устройства получены','in');
+}
+
+// ── Send: geolocation ─────────────────────────────────
+function sendGetLocation(){
+  if(dcSend(currentDevice,{type:'remote_location',reqId:'loc'+Date.now()}))
+    rlog('→ запрос геолокации...','ok');
+}
+function ctrlHandleLocation(msg){
+  const c = msg.coords;
+  const mapsUrl = `https://maps.google.com/?q=${c.lat},${c.lon}`;
+  const box = $('device-info-box');
+  box.innerHTML = `<div style="font-size:11px;color:var(--mu);line-height:2">
+    <span style="color:var(--a)">📍 Геолокация</span><br>
+    <b style="color:var(--tx)">Широта:</b> ${c.lat.toFixed(6)}<br>
+    <b style="color:var(--tx)">Долгота:</b> ${c.lon.toFixed(6)}<br>
+    <b style="color:var(--tx)">Точность:</b> ±${c.accuracy}м<br>
+    <a href="${mapsUrl}" target="_blank" style="color:var(--a);text-decoration:none">🗺 Открыть в картах →</a>
+  </div>`;
+  rlog('← геолокация: '+c.lat.toFixed(4)+', '+c.lon.toFixed(4),'in');
+  toast('📍 '+c.lat.toFixed(4)+', '+c.lon.toFixed(4),'ok',4000);
+}
+
+// ── Send: clipboard ───────────────────────────────────
+function sendClipboardRead(){
+  if(dcSend(currentDevice,{type:'remote_clipboard_read',reqId:'cb'+Date.now()}))
+    rlog('→ читаю буфер обмена...','ok');
+}
+function sendClipboardWrite(){
+  const inp = $('clipboard-text');
+  inp.style.display = inp.style.display==='none' ? '' : 'none';
+  if(inp.style.display!=='none') inp.focus();
+  else if(inp.value.trim()){
+    if(dcSend(currentDevice,{type:'remote_clipboard_write',text:inp.value,reqId:'cbw'+Date.now()}))
+      rlog('→ записываю в буфер: '+inp.value.slice(0,40),'ok');
+    inp.style.display='none';
+  }
+}
+function ctrlHandleClipboard(msg){
+  if(msg.action==='read'){
+    const el = $('clipboard-result');
+    el.style.display = '';
+    el.textContent = msg.text || '(пусто)';
+    rlog('← буфер: '+String(msg.text).slice(0,60),'in');
+  } else {
+    rlog('← буфер записан','ok');
+    toast('Буфер обмена обновлён','ok');
+  }
+}
+function copyClipboardResult(){
+  copyText($('clipboard-result').textContent, 'Скопировано');
+}
+
+// ── Send: camera ──────────────────────────────────────
+function sendCameraShot(facing){
+  rlog('→ снимок с камеры ('+facing+')...','ok');
+  toast('Запрашиваю снимок...');
+  dcSend(currentDevice,{type:'remote_camera',facing,reqId:'cam'+Date.now()});
+}
+function ctrlHandleCamera(msg){
+  const preview = $('camera-preview');
+  const img = $('camera-img');
+  img.src = msg.dataUrl;
+  preview.style.display = '';
+  $('camera-hint').style.display = 'none';
+  rlog('← снимок получен','in');
+  // Long tap on image to save
+  img.onclick = () => {
+    const a = document.createElement('a');
+    a.href = msg.dataUrl;
+    a.download = 'shot_'+Date.now()+'.jpg';
+    a.click();
+    toast('Снимок сохранён','ok');
+  };
+  img.title = 'Нажми чтобы сохранить';
+}
+
+// ── Chat ──────────────────────────────────────────────
+function addMsg(from,text,dir){
+  const msgs=$('msgs');
+  const wrap=document.createElement('div');
+  wrap.style.cssText='display:flex;flex-direction:column;align-items:'+(dir==='out'?'flex-end':'flex-start');
+  const b=document.createElement('div'); b.className='msg '+dir; b.textContent=text;
+  const t=document.createElement('div'); t.className='msg-time'; t.textContent=tsNow();
+  wrap.append(b,t); msgs.appendChild(wrap); msgs.scrollTop=msgs.scrollHeight;
+}
+function sysMsg(text){ const m=document.createElement('div'); m.className='msg sys'; m.textContent=text; $('msgs').appendChild(m); $('msgs').scrollTop=$('msgs').scrollHeight; }
+function sendMsg(){
+  const inp=$('msg-inp'), text=inp.value.trim(); if(!text)return;
+  if(dcSend(currentDevice,{type:'chat',text})){ addMsg(myId,text,'out'); inp.value=''; inp.style.height=''; }
+}
+function onMsgKey(e){ if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendMsg();} }
+
+// ── Remote log ────────────────────────────────────────
+function rlog(msg,cls=''){
+  const el=$('r-log');
+  if(el.children.length===1&&el.children[0].tagName==='SPAN') el.innerHTML='';
+  const d=document.createElement('div'); d.className=cls?'l-'+cls:''; d.textContent='['+tsNow()+'] '+msg;
+  el.appendChild(d); el.scrollTop=el.scrollHeight;
+}
+
+// ── Device list ───────────────────────────────────────
+function renderDeviceList(){
+  const list=$('device-list');
+  const ids=Object.keys(peers);
+  const onlineCount=ids.filter(id=>peers[id].online||rtcs[id]?.state==='open').length;
+  const badge=$('devices-badge');
+  badge.style.display=onlineCount>0?'flex':'none';
+  badge.textContent=onlineCount;
+
+  if(!ids.length){
+    list.innerHTML='<div style="padding:40px;text-align:center;font-size:12px;color:var(--mu);line-height:2"><div style="font-size:40px;opacity:.2;margin-bottom:12px">📱</div>Нет устройств.<br>Нажми «Подключиться» в настройках,<br>затем «+ Добавить».</div>';
+    return;
+  }
+  list.innerHTML=ids.map(id=>{
+    const p=peers[id], rtc=rtcs[id], rtcState=rtc?.state||'';
+    const isOnline=p.online||rtcState==='open';
+    const dotCls=rtcState==='open'?'rtc':isOnline?'online':'';
+    const statusText=rtcState==='open'?'🔗 RTC подключён':isOnline?'● онлайн':'○ офлайн';
+    const statusColor=rtcState==='open'?'var(--a)':isOnline?'var(--w)':'var(--mu)';
+    return `<div class="device-item${rtcState==='open'?' connected':''}" onclick="openDevice('${id}')">
+      <div class="device-avatar">${p.emoji||'💻'}</div>
+      <div class="device-info">
+        <div class="device-name">${esc(p.name||id)}</div>
+        <div class="device-status">
+          <div class="device-status-dot ${dotCls}"></div>
+          <span style="color:${statusColor}">${statusText}</span>
+        </div>
+      </div>
+      <button onclick="event.stopPropagation();removePeer('${id}')" style="background:none;border:none;color:var(--mu);font-size:20px;cursor:pointer;padding:4px;flex-shrink:0;line-height:1">×</button>
+    </div>`;
+  }).join('');
+}
+
+function removePeer(id){
+  delete peers[id];
+  if(rtcs[id]){ try{rtcs[id].pc.close();}catch(_){} delete rtcs[id]; }
+  if(currentDevice===id) closeDevice();
+  savePeers(); renderDeviceList();
+}
+
+function savePeers(){ localStorage.setItem('tvrc_peers',JSON.stringify(peers)); }
+function randomEmoji(){ return ['💻','📱','🖥️','🖱️','⌨️','📟','📺'][Math.floor(Math.random()*7)]; }
+
+// ── Add device modal ──────────────────────────────────
+let _qrDone=false;
+function showAddModal(){
+  if(!isOpen){toast('Сначала подключись к серверу','err');return;}
+  $('add-modal').classList.add('on');
+  if(!_qrDone) generateQr();
+}
+function closeAddModal(e){ if(e&&e.target!==$('add-modal'))return; $('add-modal').classList.remove('on'); }
+function switchModalTab(t){
+  ['qr','manual','scan'].forEach(n=>{ $('mt-'+n).classList.toggle('act',n===t); $('mtp-'+n).classList.toggle('on',n===t); });
+}
+function generateQr(){
+  const w=$('qr-wrap'); w.innerHTML='';
+  try{ new QRCode(w,{text:myId,width:200,height:200,colorDark:'#000',colorLight:'#fff',correctLevel:QRCode.CorrectLevel.M}); _qrDone=true; }
+  catch(_){ w.textContent=myId; }
+  $('qr-id-text').textContent=myId;
+  $('qr-id-text').onclick=()=>copyText(myId,'ID скопирован');
+}
+function doAddPeer(){
+  const id=$('add-id').value.trim(), name=$('add-name').value.trim();
+  if(!id){toast('Введи ID','err');return;}
+  addPeer(id,name); $('add-id').value=''; $('add-name').value=''; $('add-modal').classList.remove('on');
+}
+function doScanAdd(){
+  const id=$('scan-id').value.trim(), name=$('scan-name').value.trim();
+  if(!id){toast('Введи ID','err');return;}
+  addPeer(id,name); $('scan-id').value=''; $('scan-name').value=''; $('add-modal').classList.remove('on');
+}
+function addPeer(id,name){
+  if(id===myId){toast('Это твой ID','err');return;}
+  if(peers[id]){toast('Уже добавлено');return;}
+  peers[id]={id,name:name||id,online:false,emoji:randomEmoji()};
+  savePeers(); renderDeviceList(); toast('Добавлено: '+(name||id),'ok'); doPresence();
+}
+
+// ── Copy ID ───────────────────────────────────────────
+function copyMyId(){
+  copyText(myId, 'ID скопирован');
+}
+
+// ── Files: toggle my/remote ───────────────────────────
+function fmSwitch(mode){
+  const isRemote=mode==='remote';
+  $('fm-local').style.display=isRemote?'none':'flex';
+  $('fm-remote').style.display=isRemote?'flex':'none';
+  $('fm-toggle-my').style.cssText='flex:1;padding:8px;font-family:inherit;font-size:11px;font-weight:700;border:none;cursor:pointer;'+(isRemote?'background:transparent;color:var(--mu);border-bottom:2px solid transparent':'background:var(--ad);color:var(--a);border-bottom:2px solid var(--a)');
+  $('fm-toggle-remote').style.cssText='flex:1;padding:8px;font-family:inherit;font-size:11px;font-weight:700;border:none;cursor:pointer;'+(isRemote?'background:var(--ad);color:var(--a);border-bottom:2px solid var(--a)':'background:transparent;color:var(--mu);border-bottom:2px solid transparent');
+  if(isRemote) fmCheckRemoteState();
+}
+
+function fmCheckRemoteState(){
+  const rtcOpen=rtcs[currentDevice]?.state==='open';
+  $('fm-ctrl-no-rtc').style.display=rtcOpen?'none':'flex';
+  $('fm-ctrl-open').style.display=rtcOpen?'flex':'none';
+  if(rtcOpen&&!$('fm-ctrl-list').children.length) fsCtrlStartBrowse();
+}
+
+function fsCtrlStartBrowse(){
+  _ctrlPath=[]; fsCtrlRefresh();
+}
+
+// ══════════════════════════════════════════════════════
+// FILE SYSTEM MODULE
+// ══════════════════════════════════════════════════════
+
+let _hostRoot=null, _hostCwd=null, _hostPath=[];
+const _hostXfer={};
+let _ctrlPath=[];
+const _ctrlReads={};
+
+// IDB
+async function fsSaveHandle(h){ try{ const db=await _fsDb(); const tx=db.transaction('handles','readwrite'); tx.objectStore('handles').put(h,'root'); await new Promise((r,j)=>{tx.oncomplete=r;tx.onerror=j;}); }catch(_){} }
+async function fsLoadHandle(){ try{ const db=await _fsDb(); return await new Promise((res)=>{ const tx=db.transaction('handles','readonly'); const req=tx.objectStore('handles').get('root'); req.onsuccess=()=>res(req.result||null); req.onerror=()=>res(null); }); }catch(_){return null;} }
+function _fsDb(){ return new Promise((res,rej)=>{ const r=indexedDB.open('tvrc_fs',1); r.onupgradeneeded=e=>e.target.result.createObjectStore('handles'); r.onsuccess=e=>res(e.target.result); r.onerror=rej; }); }
+
+async function fsPickFolder(){
+  if(!window.showDirectoryPicker){toast('File System API не поддерживается','err');return;}
+  try{
+    const h=await window.showDirectoryPicker({mode:'readwrite'});
+    _hostRoot=h; _hostCwd=h; _hostPath=[];
+    await fsSaveHandle(h);
+    fsHostRender(); toast('Папка открыта: '+h.name,'ok');
+  }catch(e){ if(e.name!=='AbortError')toast('Ошибка: '+e.message,'err'); }
+}
+
+async function fsRestoreFolder(){
+  const h=await fsLoadHandle(); if(!h){toast('Нет сохранённой папки','err');return;}
+  try{
+    const perm=await h.requestPermission({mode:'readwrite'});
+    if(perm==='granted'){ _hostRoot=h; _hostCwd=h; _hostPath=[]; fsHostRender(); toast('Доступ восстановлен: '+h.name,'ok'); }
+    else toast('Разрешение не получено','err');
+  }catch(e){toast('Ошибка: '+e.message,'err');}
+}
+
+async function fsHostRender(){
+  if(!_hostCwd){ $('fm-no-folder').style.display='flex'; $('fm-host-open').style.display='none'; return; }
+  $('fm-no-folder').style.display='none'; $('fm-host-open').style.display='flex';
+  $('fm-host-path').textContent='/'+_hostPath.join('/') || '/'+_hostRoot.name;
+  $('btn-go-up').disabled=_hostPath.length===0;
+  const list=$('fm-host-list');
+  list.innerHTML='<div class="fm-empty" style="padding:16px;font-size:11px">Загрузка...</div>';
+  const items=await fsReadDir(_hostCwd);
+  renderFmList(list,items,fsHostClick,fsHostLong);
+}
+
+async function fsReadDir(dh){
+  const items=[];
+  for await(const [name,h] of dh.entries()){
+    let size=null,modified=null;
+    if(h.kind!=='directory'){ try{const f=await h.getFile();size=f.size;modified=f.lastModified;}catch(_){} }
+    items.push({name,kind:h.kind,size,modified});
+  }
+  items.sort((a,b)=>{ if(a.kind!==b.kind)return a.kind==='directory'?-1:1; return a.name.localeCompare(b.name); });
+  return items;
+}
+
+function renderFmList(el,items,onClick,onLong){
+  if(!items.length){el.innerHTML='<div class="fm-empty">Папка пуста</div>';return;}
+  el.innerHTML='';
+  for(const item of items){
+    const d=document.createElement('div'); d.className='fm-item';
+    const meta=item.kind==='directory'?'':(item.size!=null?fmtSize(item.size)+(item.modified?'\n'+fmtDate(item.modified):''):'');
+    d.innerHTML=`<div class="fm-icon">${item.kind==='directory'?'📁':fileEmoji(item.name)}</div><div class="fm-name">${esc(item.name)}</div><div class="fm-meta">${esc(meta)}</div>`;
+    d.onclick=()=>onClick(item);
+    d.oncontextmenu=e=>{e.preventDefault();onLong(item,d);};
+    let lt; d.addEventListener('touchstart',()=>{lt=setTimeout(()=>onLong(item,d),600);},{passive:true}); d.addEventListener('touchend',()=>clearTimeout(lt),{passive:true});
+    el.appendChild(d);
+  }
+}
+
+async function fsHostClick(item){
+  if(item.kind==='directory'){ const s=await _hostCwd.getDirectoryHandle(item.name); _hostPath.push(item.name); _hostCwd=s; fsHostRender(); }
+  else fsHostMenu(item);
+}
+function fsHostLong(item){ fsHostMenu(item); }
+function fsHostMenu(item){
+  const isDir=item.kind==='directory';
+  ctxMenu([
+    ...(!isDir?[{label:'▶ Открыть',action:()=>fsHostOpenFile(item)}]:[]),
+    ...(!isDir?[{label:'✎ Редактировать',action:()=>fsHostEdit(item)}]:[]),
+    {label:'✏️ Переименовать',action:()=>fsHostRename(item)},
+    {label:'🗑 Удалить',action:()=>fsHostDelete(item)},
+  ]);
+}
+async function fsHostOpenFile(item){ try{ const fh=await _hostCwd.getFileHandle(item.name); const f=await fh.getFile(); window.open(URL.createObjectURL(f),'_blank'); toast('Открываю: '+item.name,'ok'); }catch(e){toast('Ошибка: '+e.message,'err');} }
+async function fsHostEdit(item){ try{ const fh=await _hostCwd.getFileHandle(item.name); const f=await fh.getFile(); const text=await f.text(); openEditor(item.name,text,async(t)=>{ const w=await fh.createWritable(); await w.write(t); await w.close(); toast('Сохранено','ok'); }); }catch(e){toast('Ошибка: '+e.message,'err');} }
+async function fsHostDelete(item){ if(!confirm('Удалить «'+item.name+'»?'))return; try{ await _hostCwd.removeEntry(item.name,{recursive:true}); fsHostRender(); toast('Удалено','ok'); }catch(e){toast('Ошибка: '+e.message,'err');} }
+async function fsHostRename(item){ const n=prompt('Новое имя:',item.name); if(!n||n===item.name)return; if(item.kind==='directory'){toast('Переименование папок не поддерживается','err');return;} try{ const s=await _hostCwd.getFileHandle(item.name); const sf=await s.getFile(); const df=await _hostCwd.getFileHandle(n,{create:true}); const w=await df.createWritable(); await w.write(await sf.arrayBuffer()); await w.close(); await _hostCwd.removeEntry(item.name); fsHostRender(); toast('Переименовано','ok'); }catch(e){toast('Ошибка: '+e.message,'err');} }
+async function fsMkdir(){ const n=prompt('Имя папки:'); if(!n)return; try{ await _hostCwd.getDirectoryHandle(n,{create:true}); fsHostRender(); toast('Папка создана','ok'); }catch(e){toast('Ошибка: '+e.message,'err');} }
+async function fsNewFile(){ const n=prompt('Имя файла:'); if(!n)return; try{ const fh=await _hostCwd.getFileHandle(n,{create:true}); const w=await fh.createWritable(); await w.write(''); await w.close(); fsHostRender(); openEditor(n,'',async(t)=>{ const w2=await fh.createWritable(); await w2.write(t); await w2.close(); toast('Сохранено','ok'); }); }catch(e){toast('Ошибка: '+e.message,'err');} }
+async function fsGoUp(){ if(!_hostPath.length)return; _hostPath.pop(); _hostCwd=_hostRoot; for(const s of _hostPath) _hostCwd=await _hostCwd.getDirectoryHandle(s); fsHostRender(); }
+
+// Host: execute FS commands from controller
+async function fsExecList(from,msg){ if(!_hostRoot){dcSend(from,{type:'fs_err',reqId:msg.reqId,error:'Папка не открыта'});return;} try{ let dir=_hostRoot; const segs=(msg.path||'').split('/').filter(Boolean); for(const s of segs)dir=await dir.getDirectoryHandle(s); const items=await fsReadDir(dir); dcSend(from,{type:'fs_list_res',reqId:msg.reqId,path:msg.path||'/',items}); }catch(e){dcSend(from,{type:'fs_err',reqId:msg.reqId,error:e.message});} }
+async function fsExecRead(from,msg){ if(!_hostRoot){dcSend(from,{type:'fs_err',reqId:msg.reqId,error:'Нет доступа'});return;} try{ const segs=msg.path.split('/').filter(Boolean); let dir=_hostRoot; for(let i=0;i<segs.length-1;i++)dir=await dir.getDirectoryHandle(segs[i]); const fh=await dir.getFileHandle(segs[segs.length-1]); const f=await fh.getFile(); const CHUNK=48*1024; let off=0,idx=0; while(off<f.size){ const ab=await f.slice(off,off+CHUNK).arrayBuffer(); const b64=btoa(String.fromCharCode(...new Uint8Array(ab))); dcSend(from,{type:'fs_read_chunk',reqId:msg.reqId,idx,b64,total:f.size,name:f.name,mime:f.type||'application/octet-stream'}); off+=CHUNK;idx++; } dcSend(from,{type:'fs_read_end',reqId:msg.reqId,total:f.size,name:f.name}); }catch(e){dcSend(from,{type:'fs_err',reqId:msg.reqId,error:e.message});} }
+async function fsExecWrite(from,msg){ if(!_hostRoot){dcSend(from,{type:'fs_err',reqId:msg.reqId,error:'Нет доступа'});return;} try{ const segs=msg.path.split('/').filter(Boolean); let dir=_hostRoot; for(let i=0;i<segs.length-1;i++)dir=await dir.getDirectoryHandle(segs[i],{create:true}); const fh=await dir.getFileHandle(segs[segs.length-1],{create:true}); const w=await fh.createWritable(); await w.write(Uint8Array.from(atob(msg.b64),c=>c.charCodeAt(0))); await w.close(); dcSend(from,{type:'fs_ok',reqId:msg.reqId,msg:'written'}); fsHostRender(); }catch(e){dcSend(from,{type:'fs_err',reqId:msg.reqId,error:e.message});} }
+async function fsExecDelete(from,msg){ if(!_hostRoot){dcSend(from,{type:'fs_err',reqId:msg.reqId,error:'Нет доступа'});return;} try{ const segs=msg.path.split('/').filter(Boolean); let dir=_hostRoot; for(let i=0;i<segs.length-1;i++)dir=await dir.getDirectoryHandle(segs[i]); await dir.removeEntry(segs[segs.length-1],{recursive:true}); dcSend(from,{type:'fs_ok',reqId:msg.reqId,msg:'deleted'}); fsHostRender(); }catch(e){dcSend(from,{type:'fs_err',reqId:msg.reqId,error:e.message});} }
+async function fsExecMkdir(from,msg){ if(!_hostRoot){dcSend(from,{type:'fs_err',reqId:msg.reqId,error:'Нет доступа'});return;} try{ const segs=msg.path.split('/').filter(Boolean); let dir=_hostRoot; for(const s of segs)dir=await dir.getDirectoryHandle(s,{create:true}); dcSend(from,{type:'fs_ok',reqId:msg.reqId,msg:'created'}); fsHostRender(); }catch(e){dcSend(from,{type:'fs_err',reqId:msg.reqId,error:e.message});} }
+async function fsExecRename(from,msg){ if(!_hostRoot){dcSend(from,{type:'fs_err',reqId:msg.reqId,error:'Нет доступа'});return;} try{ const segs=msg.oldPath.split('/').filter(Boolean); let dir=_hostRoot; for(let i=0;i<segs.length-1;i++)dir=await dir.getDirectoryHandle(segs[i]); const n=segs[segs.length-1]; const sf=await(await dir.getFileHandle(n)).getFile(); const df=await dir.getFileHandle(msg.newName,{create:true}); const w=await df.createWritable(); await w.write(await sf.arrayBuffer()); await w.close(); await dir.removeEntry(n); dcSend(from,{type:'fs_ok',reqId:msg.reqId,msg:'renamed'}); fsHostRender(); }catch(e){dcSend(from,{type:'fs_err',reqId:msg.reqId,error:e.message});} }
+async function fsExecOpen(from,msg){ if(!_hostRoot){dcSend(from,{type:'fs_err',reqId:msg.reqId,error:'Нет доступа'});return;} try{ const segs=msg.path.split('/').filter(Boolean); let dir=_hostRoot; for(let i=0;i<segs.length-1;i++)dir=await dir.getDirectoryHandle(segs[i]); const fh=await dir.getFileHandle(segs[segs.length-1]); const f=await fh.getFile(); window.open(URL.createObjectURL(f),'_blank'); dcSend(from,{type:'fs_ok',reqId:msg.reqId,msg:'opened'}); toast('Открываю: '+f.name,'ok'); }catch(e){dcSend(from,{type:'fs_err',reqId:msg.reqId,error:e.message});} }
+function fsExecChunk(from,msg){ if(!_hostXfer[msg.reqId])_hostXfer[msg.reqId]={chunks:[],total:msg.total,name:msg.name,path:msg.path}; _hostXfer[msg.reqId].chunks.push(msg.b64); const pct=Math.round(_hostXfer[msg.reqId].chunks.length*48*1024/msg.total*100); _showHostXfer(msg.name,Math.min(pct,99)); }
+async function fsExecChunkEnd(from,msg){ const xfer=_hostXfer[msg.reqId]; if(!xfer)return; delete _hostXfer[msg.reqId]; try{ const all=new Uint8Array(xfer.chunks.reduce((a,b64)=>a+Uint8Array.from(atob(b64),c=>c.charCodeAt(0)).length,0)); let off=0; for(const b64 of xfer.chunks){const bytes=Uint8Array.from(atob(b64),c=>c.charCodeAt(0));all.set(bytes,off);off+=bytes.length;} const segs=xfer.path.split('/').filter(Boolean); let dir=_hostRoot; for(let i=0;i<segs.length-1;i++)dir=await dir.getDirectoryHandle(segs[i],{create:true}); const fh=await dir.getFileHandle(segs[segs.length-1],{create:true}); const w=await fh.createWritable(); await w.write(all); await w.close(); dcSend(from,{type:'fs_ok',reqId:msg.reqId,msg:'received'}); _showHostXfer(xfer.name,100); setTimeout(()=>{_hideHostXfer();fsHostRender();},1000); toast('Получен: '+xfer.name,'ok'); }catch(e){dcSend(from,{type:'fs_err',reqId:msg.reqId,error:e.message});} }
+function _showHostXfer(name,pct){ $('host-xfer-bar').classList.add('on'); $('host-xfer-name').textContent=name; $('host-xfer-pct').textContent=pct+'%'; $('host-xfer-fill').style.width=pct+'%'; }
+function _hideHostXfer(){ $('host-xfer-bar').classList.remove('on'); }
+
+// Controller: browse remote FS
+async function fsCtrlRefresh(){ if(!currentDevice)return; const path='/'+_ctrlPath.join('/'); $('fm-ctrl-list').innerHTML='<div class="fm-empty">Загрузка...</div>'; $('fm-ctrl-path').textContent=path||'/'; $('btn-ctrl-up').disabled=_ctrlPath.length===0; dcSend(currentDevice,{type:'fs_list',reqId:'ls'+Date.now(),path}); }
+function fsCtrlHandleList(msg){ if(!msg.items)return; $('fm-ctrl-path').textContent=msg.path||'/'; renderFmList($('fm-ctrl-list'),msg.items,fsCtrlClick,fsCtrlLong); }
+function fsCtrlClick(item){ if(item.kind==='directory'){_ctrlPath.push(item.name);fsCtrlRefresh();}else fsCtrlMenu(item); }
+function fsCtrlLong(item){ fsCtrlMenu(item); }
+function fsCtrlMenu(item){ const path='/'+[..._ctrlPath,item.name].join('/'); const isDir=item.kind==='directory'; ctxMenu([ ...(!isDir?[{label:'▶ Открыть на устройстве',action:()=>fsCtrlOpen(path,item.name)}]:[]), ...(!isDir?[{label:'⬇ Скачать',action:()=>fsCtrlDownload(path,item.name)}]:[]), ...(!isDir?[{label:'✎ Редактировать',action:()=>fsCtrlEdit(path,item.name)}]:[]), {label:'✏️ Переименовать',action:()=>fsCtrlRename(path,item.name)}, {label:'🗑 Удалить',action:()=>fsCtrlDelete(path,item.name)}, ]); }
+function fsCtrlOpen(path,name){ dcSend(currentDevice,{type:'fs_open',reqId:'o'+Date.now(),path}); rlog('→ открыть '+name,'ok'); }
+function fsCtrlDelete(path,name){ if(!confirm('Удалить «'+name+'»?'))return; dcSend(currentDevice,{type:'fs_delete',reqId:'d'+Date.now(),path}); }
+function fsCtrlRename(path,name){ const n=prompt('Новое имя:',name); if(!n||n===name)return; dcSend(currentDevice,{type:'fs_rename',reqId:'r'+Date.now(),oldPath:path,newName:n}); }
+function fsCtrlGoUp(){ if(!_ctrlPath.length)return; _ctrlPath.pop(); fsCtrlRefresh(); }
+function fsCtrlMkdir(){ const n=prompt('Имя папки:'); if(!n)return; dcSend(currentDevice,{type:'fs_mkdir',reqId:'m'+Date.now(),path:'/'+[..._ctrlPath,n].join('/')}); }
+function fsCtrlNewFile(){ const n=prompt('Имя файла:'); if(!n)return; const path='/'+[..._ctrlPath,n].join('/'); openEditor(n,'',async(text)=>{ const b64=btoa(unescape(encodeURIComponent(text))); dcSend(currentDevice,{type:'fs_write',reqId:'w'+Date.now(),path,b64}); }); }
+function fsCtrlEdit(path,name){ const reqId='e'+Date.now(); _ctrlReads[reqId]={chunks:[],total:0,name,isEdit:true,path}; dcSend(currentDevice,{type:'fs_read',reqId,path}); }
+function fsCtrlDownload(path,name){ const reqId='dl'+Date.now(); _ctrlReads[reqId]={chunks:[],total:0,name,isEdit:false,path}; dcSend(currentDevice,{type:'fs_read',reqId,path}); }
+function fsCtrlHandleReadChunk(msg){ const r=_ctrlReads[msg.reqId]; if(!r)return; r.chunks.push(msg.b64); r.total=msg.total; const pct=Math.round(r.chunks.length*48*1024/msg.total*100); _showCtrlXfer(r.name,Math.min(pct,99)); }
+function fsCtrlHandleReadEnd(msg){ const r=_ctrlReads[msg.reqId]; if(!r)return; delete _ctrlReads[msg.reqId]; _showCtrlXfer(r.name,100); setTimeout(()=>_hideCtrlXfer(),1000); const all=new Uint8Array(r.chunks.reduce((a,b64)=>a+Uint8Array.from(atob(b64),c=>c.charCodeAt(0)).length,0)); let off=0; for(const b64 of r.chunks){const bytes=Uint8Array.from(atob(b64),c=>c.charCodeAt(0));all.set(bytes,off);off+=bytes.length;} if(r.isEdit){ openEditor(r.name,new TextDecoder().decode(all),async(text)=>{ const b64=btoa(unescape(encodeURIComponent(text))); dcSend(currentDevice,{type:'fs_write',reqId:'w'+Date.now(),path:r.path,b64}); setTimeout(()=>fsCtrlRefresh(),300); }); }else{ const blob=new Blob([all]); const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download=r.name; a.click(); setTimeout(()=>URL.revokeObjectURL(url),5000); toast('Скачано: '+r.name,'ok'); } }
+function fsCtrlHandleOk(msg){ rlog('← OK: '+msg.msg,'ok'); toast(msg.msg||'Готово','ok'); if(['written','deleted','renamed','created','received'].includes(msg.msg)) setTimeout(()=>fsCtrlRefresh(),200); }
+function fsCtrlHandleErr(msg){ rlog('← FS ошибка: '+msg.error,'err'); toast('Ошибка: '+msg.error,'err'); }
+function _showCtrlXfer(name,pct){ $('ctrl-xfer-bar').classList.add('on'); $('ctrl-xfer-name').textContent=name; $('ctrl-xfer-pct').textContent=pct+'%'; $('ctrl-xfer-fill').style.width=pct+'%'; }
+function _hideCtrlXfer(){ $('ctrl-xfer-bar').classList.remove('on'); }
+
+// File type icons
+function fileEmoji(n){ const e=(n.split('.').pop()||'').toLowerCase(); return {js:'📜',ts:'📜',jsx:'📜',tsx:'📜',html:'🌐',css:'🎨',json:'📋',yaml:'📋',yml:'📋',md:'📝',txt:'📝',png:'🖼',jpg:'🖼',jpeg:'🖼',gif:'🖼',webp:'🖼',svg:'🖼',mp4:'🎬',mov:'🎬',webm:'🎬',mp3:'🎵',wav:'🎵',m4a:'🎵',pdf:'📕',zip:'📦',gz:'📦',tar:'📦',sh:'⚙️',py:'🐍',rb:'💎',go:'🐹',rs:'🦀',exe:'⚙️',dmg:'💿'}[e]||'📄'; }
+
+// ── Editor ────────────────────────────────────────────
+let _editorSave=null;
+function openEditor(name,text,onSave){ _editorSave=onSave; $('editor-fname').textContent=name; $('editor-ta').value=text; $('editor-modal').classList.add('on'); $('editor-ta').focus(); }
+async function editorSave(){ if(!_editorSave)return; const btn=$('btn-editor-save'); btn.disabled=true; btn.textContent='⏳'; try{await _editorSave($('editor-ta').value);}catch(e){toast('Ошибка: '+e.message,'err');} btn.disabled=false; btn.textContent='💾 Сохранить'; }
+function closeEditor(){ $('editor-modal').classList.remove('on'); _editorSave=null; }
+
+// ── Context menu ──────────────────────────────────────
+let _ctx=null;
+function ctxMenu(items){
+  if(_ctx){_ctx.remove();_ctx=null;}
+  const m=document.createElement('div');
+  m.style.cssText='position:fixed;bottom:0;left:0;right:0;z-index:400;background:var(--sf);border-top:1px solid var(--bd);border-radius:16px 16px 0 0;padding:8px 0 calc(8px + env(safe-area-inset-bottom,0px));animation:slideUp .2s ease';
+  for(const it of items){ const b=document.createElement('button'); b.style.cssText='width:100%;padding:14px 20px;background:none;border:none;color:var(--tx);font-family:inherit;font-size:13px;text-align:left;cursor:pointer'; b.textContent=it.label; b.onclick=()=>{m.remove();_ctx=null;it.action();}; m.appendChild(b); }
+  const c=document.createElement('button'); c.style.cssText='width:100%;padding:14px 20px;background:none;border:none;color:var(--mu);font-family:inherit;font-size:12px;text-align:center;cursor:pointer;border-top:1px solid var(--bd);margin-top:4px'; c.textContent='Отмена'; c.onclick=()=>{m.remove();_ctx=null;}; m.appendChild(c);
+  document.body.appendChild(m); _ctx=m;
+  const dismiss=e=>{if(!m.contains(e.target)){m.remove();_ctx=null;document.removeEventListener('touchstart',dismiss);document.removeEventListener('mousedown',dismiss);}};
+  setTimeout(()=>{document.addEventListener('touchstart',dismiss,{passive:true});document.addEventListener('mousedown',dismiss);},100);
+}
+
+// ── Pill ──────────────────────────────────────────────
+requestAnimationFrame(()=>{ const a=document.querySelector('.tab.act'); if(a) movePill(a.id); });
+window.addEventListener('resize',()=>{ const a=document.querySelector('.tab.act'); if(a) movePill(a.id); });
+
+// ── Init ──────────────────────────────────────────────
+(async()=>{
+  await loadOrGenKey();
+  const saved=localStorage.getItem('tvrc_srv');
+  if(saved&&saved!=='wss://tovsa-signaling.onrender.com/signal'){ $('srv-select').value='custom'; $('srv-custom').style.display=''; $('srv-custom').value=saved; }
+  try{ Object.assign(peers,JSON.parse(localStorage.getItem('tvrc_peers')||'{}')); }catch(_){}
+  renderDeviceList();
+  generateQr();
+  // Check for saved FS handle
+  const h=await fsLoadHandle();
+  if(h){ $('btn-restore-folder').style.display=''; }
+})();
+</script>
+</body>
+</html>

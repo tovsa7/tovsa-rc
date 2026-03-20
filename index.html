@@ -3,14 +3,14 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<title>Tovsa Remote</title>
 <meta name="theme-color" content="#0a0a0f">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Tovsa RC">
-<link rel="manifest" href="./manifest.json">
-<link rel="apple-touch-icon" href="./icon-192.png">
+<link rel="manifest" href="/tovsa-rc/manifest.json">
+<link rel="apple-touch-icon" href="/tovsa-rc/icon-192.png">
+<title>Tovsa Remote</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap');
@@ -300,6 +300,12 @@ select{cursor:pointer;appearance:none;
 .editor-filename{flex:1;font-size:12px;color:var(--a);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 #editor-ta{flex:1;resize:none;border:none;outline:none;background:var(--bg);color:var(--tx);font-family:'JetBrains Mono',monospace;font-size:12px;line-height:1.6;padding:14px;overflow-y:auto}
 
+/* ── ANIMATIONS ── */
+@keyframes slideInRight{from{opacity:0;transform:translateX(28px)}to{opacity:1;transform:none}}
+@keyframes slideInLeft{from{opacity:0;transform:translateX(-28px)}to{opacity:1;transform:none}}
+@keyframes slideInFromRight{from{transform:translateX(100%)}to{transform:translateX(0)}}
+@keyframes slideOutToRight{from{transform:translateX(0)}to{transform:translateX(100%)}}
+
 /* ── TOAST ── */
 #toasts{position:fixed;top:calc(20px + env(safe-area-inset-top,0px));left:50%;transform:translateX(-50%);display:flex;flex-direction:column;gap:7px;z-index:999;pointer-events:none;width:calc(100% - 40px);max-width:360px}
 .toast{background:var(--sf);border:1px solid var(--bd);border-radius:10px;padding:11px 16px;font-size:12px;text-align:center;animation:toastIn .2s ease}
@@ -397,6 +403,7 @@ select{cursor:pointer;appearance:none;
 
   <!-- ── CHAT panel ── -->
   <div class="inner-panel on" id="ipanel-chat">
+    <div style="padding:3px 12px;background:var(--sf);border-bottom:1px solid var(--bd);display:flex;justify-content:flex-end;flex-shrink:0"><button onclick="clearChatHistory()" style="background:none;border:none;font-size:10px;color:var(--mu);cursor:pointer;padding:3px 8px;font-family:inherit">🗑 История</button></div>
     <div class="msgs" id="msgs"></div>
     <div class="iarea">
       <textarea id="msg-inp" placeholder="Сообщение..." onkeydown="onMsgKey(event)" oninput="autoResize(this)" rows="1"></textarea>
@@ -440,35 +447,45 @@ select{cursor:pointer;appearance:none;
         </div>
       </div>
       <div class="r-card">
-        <div class="r-card-title">📊 Данные устройства</div>
-        <div id="device-info-box" style="font-size:11px;color:var(--mu);line-height:2;background:var(--bg);border:1px solid var(--bd);border-radius:8px;padding:10px 12px">
-          Нажми «Получить» чтобы запросить данные
+        <div class="r-card-title">🎤 Микрофон</div>
+        <div style="font-size:11px;color:var(--mu);margin-bottom:6px">Запись с микрофона устройства</div>
+        <div class="presets">
+          <button class="preset" onclick="sendAudioRecord(5)">5с</button>
+          <button class="preset" onclick="sendAudioRecord(10)">10с</button>
+          <button class="preset" onclick="sendAudioRecord(30)">30с</button>
         </div>
-        <div class="row">
-          <button class="btn sm" onclick="sendGetDeviceInfo()" style="flex:1">📊 Получить</button>
-          <button class="btn ghost sm" onclick="sendGetLocation()" style="flex:1">📍 Геолокация</button>
-        </div>
+        <button class="btn sm full" onclick="sendAudioRecord(10)" style="margin-top:4px">🎤 Записать 10с</button>
       </div>
 
-      <div class="r-card">
-        <div class="r-card-title">📋 Буфер обмена</div>
-        <div class="row">
-          <button class="btn sm" onclick="sendClipboardRead()" style="flex:1">📋 Прочитать</button>
-          <button class="btn ghost sm" onclick="sendClipboardWrite()" style="flex:1">✏️ Записать</button>
+      <div class="r-card" id="agent-card">
+        <div class="r-card-title" style="justify-content:space-between">
+          <span>⚡ Агент</span>
+          <span id="agent-status" style="font-size:10px;color:var(--mu)">не подключён</span>
         </div>
-        <input id="clipboard-text" placeholder="Текст для записи в буфер..." style="display:none">
-        <div id="clipboard-result" style="display:none;font-size:11px;color:var(--a);background:var(--ad);border:1px solid rgba(0,255,157,.2);border-radius:8px;padding:10px 12px;word-break:break-all;cursor:pointer" onclick="copyClipboardResult()" title="Нажми чтобы скопировать"></div>
-      </div>
-
-      <div class="r-card">
-        <div class="r-card-title">📸 Камера</div>
-        <div id="camera-preview" style="display:none;border-radius:10px;overflow:hidden;background:#000;aspect-ratio:4/3;max-height:200px">
-          <img id="camera-img" style="width:100%;height:100%;object-fit:cover" alt="">
+        <!-- Install hint (shown when not connected) -->
+        <div id="agent-install-hint" style="background:var(--bg);border:1px solid var(--bd);border-radius:8px;padding:10px 12px;font-size:11px;color:var(--mu);line-height:1.9">
+          Запусти на устройстве:<br>
+          <code style="color:var(--a);user-select:all;cursor:pointer" onclick="copyText(this.textContent,'Скопировано')" title="Нажми чтобы скопировать">python3 -c "$(curl -fsSL https://tovsa7.github.io/tovsa-rc/bootstrap.py)"</code>
+          <br><span style="opacity:.6">Windows PowerShell:</span><br>
+          <code style="color:var(--a);user-select:all;cursor:pointer;font-size:10px" onclick="copyText(this.textContent,'Скопировано')" title="Нажми чтобы скопировать">python -c (Invoke-WebRequest https://tovsa7.github.io/tovsa-rc/bootstrap.py).Content</code>
+          <br><span style="opacity:.6">Android (Termux):</span><br>
+          <code style="color:var(--a);user-select:all;cursor:pointer" onclick="copyText(this.textContent,'Скопировано')" title="Нажми чтобы скопировать">pkg install python curl && python3 -c "$(curl -fsSL https://tovsa7.github.io/tovsa-rc/bootstrap.py)"</code>
+          <br><span style="opacity:.5;font-size:10px">Для доступа к файлам телефона: <code style="color:var(--w)" onclick="copyText('termux-setup-storage','Скопировано')">termux-setup-storage</code></span>
         </div>
-        <div id="camera-hint" style="font-size:11px;color:var(--mu)">Делает снимок с фронтальной или основной камеры устройства</div>
-        <div class="row">
-          <button class="btn sm" onclick="sendCameraShot('user')" style="flex:1">🤳 Фронт</button>
-          <button class="btn sm" onclick="sendCameraShot('environment')" style="flex:1">📷 Основная</button>
+        <div class="row" style="align-items:center">
+          <input id="agent-url" placeholder="http://localhost:7070" value="http://localhost:7070" style="flex:1;font-size:11px">
+          <button class="btn sm" onclick="agentConnect()" id="agent-connect-btn">Подключить</button>
+        </div>
+        <div id="agent-info" style="display:none;font-size:11px;color:var(--mu);background:var(--bg);border:1px solid var(--bd);border-radius:8px;padding:8px 10px;line-height:1.8"></div>
+        <!-- Terminal -->
+        <div id="agent-term" style="display:none;flex-direction:column;gap:6px">
+          <div id="agent-cwd" style="font-size:10px;color:var(--a);background:var(--bg);border:1px solid var(--bd);border-radius:6px;padding:4px 8px;cursor:pointer" onclick="agentCd('..') " title="Нажми чтобы перейти выше">📁 /</div>
+          <div id="agent-ls" style="background:var(--bg);border:1px solid var(--bd);border-radius:8px;overflow:hidden;max-height:180px;overflow-y:auto"></div>
+          <div class="row">
+            <input id="agent-cmd" placeholder="команда..." style="flex:1;font-size:11px" onkeydown="if(event.key==='Enter')agentRun()">
+            <button class="btn sm" onclick="agentRun()">▶</button>
+          </div>
+          <div id="agent-output" style="display:none;background:var(--bg);border:1px solid var(--bd);border-radius:8px;padding:8px 10px;font-size:10px;line-height:1.7;max-height:160px;overflow-y:auto;white-space:pre-wrap;word-break:break-all"></div>
         </div>
       </div>
 
@@ -485,7 +502,7 @@ select{cursor:pointer;appearance:none;
   <!-- ── FILES panel ── -->
   <div class="inner-panel" id="ipanel-files">
     <!-- My folder (host mode) -->
-    <div id="fm-my" style="display:flex;flex-direction:column;flex:1;min-height:0;overflow:hidden">
+    <div id="fm-my" style="display:flex;flex-direction:column;height:100%;overflow:hidden">
       <!-- Toggle: my folder vs remote -->
       <div style="display:flex;border-bottom:1px solid var(--bd);flex-shrink:0;background:var(--sf)">
         <button id="fm-toggle-my" onclick="fmSwitch('my')" style="flex:1;padding:8px;font-family:inherit;font-size:11px;font-weight:700;border:none;background:var(--ad);color:var(--a);border-bottom:2px solid var(--a);cursor:pointer">📁 Моя папка</button>
@@ -494,7 +511,7 @@ select{cursor:pointer;appearance:none;
 
       <!-- My folder view -->
       <div id="fm-local" style="display:flex;flex-direction:column;flex:1;min-height:0;overflow:hidden">
-        <div id="fm-no-folder" style="flex:1;min-height:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:32px;text-align:center">
+        <div id="fm-no-folder" style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:32px;text-align:center">
           <div style="font-size:44px;opacity:.2">📁</div>
           <div style="font-size:13px;font-weight:700;color:var(--mu)">Папка не выбрана</div>
           <div style="font-size:11px;color:var(--mu);line-height:1.7;opacity:.7">Выбери папку — другое устройство сможет управлять файлами</div>
@@ -527,7 +544,7 @@ select{cursor:pointer;appearance:none;
           <span class="fm-path" id="fm-ctrl-path">/</span>
           <button class="btn sm" onclick="fsCtrlRefresh()">↻</button>
         </div>
-        <div id="fm-ctrl-no-rtc" style="flex:1;min-height:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:32px;text-align:center">
+        <div id="fm-ctrl-no-rtc" style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:32px;text-align:center">
           <div style="font-size:40px;opacity:.2">🔗</div>
           <div style="font-size:13px;font-weight:700;color:var(--mu)">Нужен RTC</div>
           <div style="font-size:11px;color:var(--mu);opacity:.7">Подключи RTC чтобы видеть файлы устройства</div>
@@ -538,6 +555,7 @@ select{cursor:pointer;appearance:none;
           <div class="fm-actions">
             <button class="btn sm" onclick="fsCtrlMkdir()">📂 Папка</button>
             <button class="btn sm" onclick="fsCtrlNewFile()">📄 Файл</button>
+            <button class="btn sm" onclick="$('fs-send-input').click()" style="background:var(--w);color:#000">⬆ Отправить</button>
             <button class="btn ghost sm" onclick="fsCtrlGoUp()" id="btn-ctrl-up" disabled>↑ Назад</button>
           </div>
           <div class="xfer-bar" id="ctrl-xfer-bar">
@@ -638,33 +656,11 @@ function dbg(msg, type=''){
   if(_dbgBuf.length>300) _dbgBuf.shift();
 }
 
-// Universal clipboard copy — works on HTTP too
-function copyText(text, successMsg){
-  const msg = successMsg || 'Скопировано';
-  if(navigator.clipboard && window.isSecureContext){
-    navigator.clipboard.writeText(text).then(()=>toast(msg,'ok')).catch(()=>_copyFallback(text,msg));
-  } else {
-    _copyFallback(text, msg);
-  }
-}
-function _copyFallback(text, msg){
-  const ta = document.createElement('textarea');
-  ta.value = text;
-  ta.style.cssText = 'position:fixed;left:-9999px;top:-9999px;opacity:0';
-  document.body.appendChild(ta);
-  ta.focus(); ta.select();
-  try{
-    document.execCommand('copy');
-    toast(msg, 'ok');
-  }catch(_){ toast('Не удалось скопировать'); }
-  ta.remove();
-}
-
 function copyLog(){
   const logEl=$('r-log');
   const lines=Array.from(logEl.children).map(c=>c.textContent).join('\n');
   const all=_dbgBuf.map(({t,msg})=>`[${t}] ${msg}`).join('\n')+(lines?'\n\n--- CMD LOG ---\n'+lines:'');
-  copyText(all, 'Лог скопирован');
+  navigator.clipboard.writeText(all).then(()=>toast('Лог скопирован','ok')).catch(()=>toast('Ошибка'));
 }
 
 function autoResize(el){ el.style.height='auto'; el.style.height=Math.min(el.scrollHeight,110)+'px'; }
@@ -699,36 +695,39 @@ function openDevice(id){
   $('topbar-title').textContent = p?.name || id.slice(0,16);
   $('my-id-badge').style.display='none';
   $('conn-dot').style.display='none';
-  // Hide tabbar and active screen
+  // Hide tabbar
   $('tabbar').style.display='none';
-  document.querySelectorAll('.scr.on').forEach(el=>el.style.visibility='hidden');
-  // Reset to chat tab
-  switchInnerTab('chat');
-  // Update device info
-  const rtc = rtcs[id];
-  $('dev-sub').textContent = p?.online ? 'онлайн' : 'офлайн';
   // Show device screen
+  loadChatHistory(id).catch(()=>{});
+  $('s-device').style.animation='slideInFromRight .25s cubic-bezier(.4,0,.2,1) both';
   $('s-device').classList.add('on');
   updateDevRtcBadge(id);
+  // Render chat
+  renderDeviceChat(id);
+  // Auto-switch to files if we came from files toggle
 }
 
 function closeDevice(){
-  $('s-device').classList.remove('on');
-  document.querySelectorAll('.scr').forEach(el=>el.style.visibility='');
+  $('s-device').style.animation='slideOutToRight .22s cubic-bezier(.4,0,.2,1) both';
+  setTimeout(()=>{ $('s-device').classList.remove('on'); $('s-device').style.animation=''; },220);
   $('tabbar').style.display='flex';
   $('topbar-back').style.display='none';
   $('topbar-title').textContent='TOVSA RC';
   $('my-id-badge').style.display=isOpen?'inline-block':'none';
   $('conn-dot').style.display='';
   currentDevice=null;
-  _ctrlPath=[];
+  // Re-init pill
   requestAnimationFrame(()=>{ const a=document.querySelector('.tab.act'); if(a) movePill(a.id); });
 }
 
 function switchInnerTab(name){
-  ['chat','commands','files'].forEach(t=>{
+  const all=['chat','commands','files'];
+  const cur=all.find(t=>$('ipanel-'+t)?.classList.contains('on'));
+  const dir=all.indexOf(name)>all.indexOf(cur)?'Right':'Left';
+  all.forEach(t=>{
     $('itab-'+t).classList.toggle('act',t===name);
-    $('ipanel-'+t).classList.toggle('on',t===name);
+    const panel=$('ipanel-'+t); if(!panel)return;
+    if(t===name){panel.style.animation='slideIn'+dir+' .2s cubic-bezier(.4,0,.2,1) both';panel.classList.add('on');}else{panel.classList.remove('on');panel.style.animation='';}
   });
   // When switching to files, check RTC state for remote panel
   if(name==='files') fmCheckRemoteState();
@@ -750,23 +749,20 @@ function updateDevRtcBadge(id){
   const badge=$('dev-rtc-badge'), btn=$('dev-rtc-btn');
   const rtc=rtcs[id||currentDevice];
   const s=rtc?.state||'';
-  const p=peers[id||currentDevice];
   if(s==='open'){
     badge.className='rtc-badge open'; badge.textContent='RTC ●';
     if(btn){ btn.textContent='✓ RTC'; btn.disabled=true; }
     $('rtc-prompt').style.display='none';
-    $('dev-sub').textContent='🔗 RTC подключён';
   } else if(s==='connecting'){
     badge.className='rtc-badge connecting'; badge.textContent='RTC...';
     if(btn){ btn.textContent='⏳...'; btn.disabled=true; }
     $('rtc-prompt').style.display='flex';
-    $('dev-sub').textContent='Подключаю RTC...';
   } else {
     badge.className='rtc-badge'; badge.textContent='нет RTC';
     if(btn){ btn.textContent='🔗 RTC'; btn.disabled=false; }
     $('rtc-prompt').style.display='flex';
-    $('dev-sub').textContent=p?.online?'онлайн':'офлайн';
   }
+  // Also update device list
   renderDeviceList();
 }
 
@@ -832,13 +828,18 @@ function connectToServer(){
   setDot(''); dbg('WS → '+url,'info');
   if(ws){ try{ws.close(1000,'reconnect');}catch(_){} ws=null; }
   ws=new WebSocket(url);
-  ws.onopen=()=>{ setDot('act'); dbg('WS открыт','ok'); };
+  ws.onopen=()=>{ setDot('act'); window._wsRA=0; dbg('WS открыт','ok'); };
   ws.onclose=(e)=>{
     setDot(''); isOpen=false;
     $('btn-connect').disabled=false; $('btn-connect').textContent='Подключиться';
     $('btn-add').disabled=true;
     dbg(`WS закрыт: ${e.code} ${e.reason||''}`,e.code===1000?'':'err');
-    if(e.code!==1000&&e.code!==1001) toast(`Разрыв: ${e.code}${e.reason?' — '+e.reason:''}` ,'err');
+    if(e.code===1000||e.code===1001) return;
+    if(typeof window._wsRA==='undefined') window._wsRA=0;
+    window._wsRA++;
+    const delay=Math.min(1000*Math.pow(1.5,window._wsRA-1),30000);
+    dbg('Реконнект через '+Math.round(delay/1000)+'с (попытка '+window._wsRA+')...','info');
+    setTimeout(()=>connectToServer(),delay);
   };
   ws.onerror=()=>{ setDot(''); $('btn-connect').disabled=false; $('btn-connect').textContent='Подключиться'; toast('Ошибка подключения','err'); };
   ws.onmessage=(e)=>{ let m; try{m=JSON.parse(e.data);}catch{return;} handleServer(m); };
@@ -862,6 +863,7 @@ function handleServer(m){
       $('btn-connect').disabled=false; $('btn-connect').textContent='Переподключить';
       $('btn-add').disabled=false;
       dbg('OPEN ✓','ok'); toast('Подключено!','ok');
+      requestNotifPermission();
       schedulePresence(); break;
     case 'ERR':
       dbg('ERR '+m.code+' '+(m.msg||''),'err');
@@ -910,6 +912,10 @@ function getRtc(id){
     if(s==='connected'&&currentDevice===id){
       const remoteVisible=$('fm-remote')?.style.display!=='none';
       if(remoteVisible) fsCtrlStartBrowse();
+    }
+    if((s==='failed'||s==='disconnected')&&peers[id]){
+      dbg('RTC разрыв, реконнект через 3с...','err');
+      setTimeout(()=>{ if(rtcs[id]?.state!=='open'&&peers[id]){ try{rtcs[id]?.pc?.close();}catch(_){} delete rtcs[id]; createOffer(id); } },3000);
     }
   };
   entry.pc.ondatachannel=e=>setupDc(id,e.channel);
@@ -990,16 +996,8 @@ function handleDc(from,msg){
     case 'remote_open_url': execOpenUrl(from,msg); break;
     case 'remote_eval':     execEval(from,msg);    break;
     case 'remote_query':    execQuery(from,msg);   break;
-    case 'remote_device_info': execDeviceInfo(from,msg); break;
-    case 'remote_location':    execLocation(from,msg);   break;
-    case 'remote_clipboard_read':  execClipboardRead(from,msg);  break;
-    case 'remote_clipboard_write': execClipboardWrite(from,msg); break;
-    case 'remote_camera':          execCamera(from,msg);         break;
-    // Results back to controller
-    case 'remote_device_info_res': ctrlHandleDeviceInfo(msg); break;
-    case 'remote_location_res':    ctrlHandleLocation(msg);    break;
-    case 'remote_clipboard_res':   ctrlHandleClipboard(msg);   break;
-    case 'remote_camera_res':      ctrlHandleCamera(msg);      break;
+    case 'remote_audio_record':    execAudioRecord(from,msg);    break;
+    case 'remote_audio_res':       ctrlHandleAudio(msg);         break;
     // FS commands (host receives)
     case 'fs_list':      fsExecList(from,msg);      break;
     case 'fs_read':      fsExecRead(from,msg);      break;
@@ -1038,111 +1036,23 @@ function execQuery(from,msg){
   dcSend(from,{type:'remote_result',cmd:msg.query,result:r,reqId:msg.reqId});
 }
 
-// ── Exec: device info ────────────────────────────────
-async function execDeviceInfo(from, msg){
+// ── Exec: audio ──────────────────────────────────────
+async function execAudioRecord(from,msg){
+  const ms=Math.min((msg.duration||5),30)*1000;
   try{
-    const info = {};
-    // Battery
-    if(navigator.getBattery){
-      try{
-        const b = await navigator.getBattery();
-        info.battery = {
-          level: Math.round(b.level*100)+'%',
-          charging: b.charging ? '⚡ заряжается' : '🔋 от батареи',
-          chargingTime: b.chargingTime===Infinity ? '—' : Math.round(b.chargingTime/60)+' мин до зарядки',
-          dischargingTime: b.dischargingTime===Infinity ? '—' : Math.round(b.dischargingTime/60)+' мин до разряда',
-        };
-      }catch(_){ info.battery = 'недоступно'; }
-    } else { info.battery = 'API не поддерживается'; }
-    // Network
-    const conn = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
-    if(conn){
-      info.network = {
-        type: conn.effectiveType || conn.type || '?',
-        downlink: conn.downlink ? conn.downlink+'Mbps' : '?',
-        rtt: conn.rtt ? conn.rtt+'ms' : '?',
-        saveData: conn.saveData ? 'режим экономии' : 'обычный',
-      };
-    } else { info.network = 'API не поддерживается'; }
-    // Memory
-    if(performance.memory){
-      info.memory = {
-        used: Math.round(performance.memory.usedJSHeapSize/1048576)+'MB',
-        total: Math.round(performance.memory.jsHeapSizeLimit/1048576)+'MB',
-      };
-    }
-    // Screen
-    info.screen = {
-      size: screen.width+'×'+screen.height,
-      dpr: window.devicePixelRatio,
-      orientation: screen.orientation?.type || '?',
-    };
-    // Platform
-    info.platform = {
-      ua: navigator.userAgent.slice(0,80),
-      lang: navigator.language,
-      online: navigator.onLine ? 'онлайн' : 'офлайн',
-      cores: navigator.hardwareConcurrency || '?',
-    };
-    dcSend(from, {type:'remote_device_info_res', reqId:msg.reqId, info});
-  }catch(e){ dcSend(from, {type:'remote_error', error:e.message, reqId:msg.reqId}); }
-}
-
-// ── Exec: geolocation ─────────────────────────────────
-function execLocation(from, msg){
-  if(!navigator.geolocation){
-    dcSend(from, {type:'remote_error', error:'Геолокация не поддерживается', reqId:msg.reqId}); return;
-  }
-  navigator.geolocation.getCurrentPosition(
-    pos => dcSend(from, {type:'remote_location_res', reqId:msg.reqId, coords:{
-      lat: pos.coords.latitude,
-      lon: pos.coords.longitude,
-      accuracy: Math.round(pos.coords.accuracy),
-      altitude: pos.coords.altitude,
-    }}),
-    err => dcSend(from, {type:'remote_error', error:'Геолокация: '+err.message, reqId:msg.reqId}),
-    {enableHighAccuracy:true, timeout:10000}
-  );
-}
-
-// ── Exec: clipboard read ──────────────────────────────
-async function execClipboardRead(from, msg){
-  try{
-    const text = await navigator.clipboard.readText();
-    dcSend(from, {type:'remote_clipboard_res', reqId:msg.reqId, text, action:'read'});
-  }catch(e){ dcSend(from, {type:'remote_error', error:'Буфер: '+e.message, reqId:msg.reqId}); }
-}
-
-// ── Exec: clipboard write ─────────────────────────────
-async function execClipboardWrite(from, msg){
-  try{
-    await navigator.clipboard.writeText(msg.text||'');
-    dcSend(from, {type:'remote_clipboard_res', reqId:msg.reqId, text:msg.text, action:'write'});
-  }catch(e){ dcSend(from, {type:'remote_error', error:'Буфер: '+e.message, reqId:msg.reqId}); }
-}
-
-// ── Exec: camera shot ─────────────────────────────────
-async function execCamera(from, msg){
-  try{
-    const facing = msg.facing || 'environment';
-    const stream = await navigator.mediaDevices.getUserMedia({
-      video:{facingMode: facing, width:{ideal:1280}, height:{ideal:720}},
-      audio: false,
-    });
-    const video = document.createElement('video');
-    video.srcObject = stream;
-    video.setAttribute('playsinline','');
-    await new Promise(r => { video.onloadedmetadata = r; video.play(); });
-    // Wait a frame for camera to adjust
-    await new Promise(r => setTimeout(r, 400));
-    const canvas = document.createElement('canvas');
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
-    canvas.getContext('2d').drawImage(video, 0, 0);
-    stream.getTracks().forEach(t => t.stop());
-    const jpeg = canvas.toDataURL('image/jpeg', 0.82);
-    dcSend(from, {type:'remote_camera_res', reqId:msg.reqId, dataUrl:jpeg, facing});
-  }catch(e){ dcSend(from, {type:'remote_error', error:'Камера: '+e.message, reqId:msg.reqId}); }
+    const stream=await navigator.mediaDevices.getUserMedia({audio:true,video:false});
+    const rec=new MediaRecorder(stream);
+    const chunks=[];
+    rec.ondataavailable=e=>{if(e.data.size>0)chunks.push(e.data);};
+    rec.start(200);
+    await new Promise(r=>setTimeout(r,ms));
+    rec.stop(); stream.getTracks().forEach(t=>t.stop());
+    await new Promise(r=>{rec.onstop=r;});
+    const ab=await new Blob(chunks).arrayBuffer();
+    const b64=btoa(String.fromCharCode(...new Uint8Array(ab)));
+    dcSend(from,{type:'remote_audio_res',reqId:msg.reqId,b64,duration:ms,mime:'audio/webm'});
+    toast('Запись отправлена','ok');
+  }catch(e){dcSend(from,{type:'remote_error',error:'Микрофон: '+e.message,reqId:msg.reqId});}
 }
 
 // ── Send commands ─────────────────────────────────────
@@ -1158,110 +1068,25 @@ function sendEval(){
 function sendQuery(q){ if(dcSend(currentDevice,{type:'remote_query',query:q,reqId:Date.now()})) rlog('→ '+q,'ok'); }
 function setUrl(u){ $('r-url').value=u; }
 
-// ── Send: device info ─────────────────────────────────
-function sendGetDeviceInfo(){
-  if(dcSend(currentDevice,{type:'remote_device_info',reqId:'di'+Date.now()}))
-    rlog('→ запрос данных устройства...','ok');
-}
-function ctrlHandleDeviceInfo(msg){
-  const info = msg.info;
-  let html = '';
-  const fmt = (obj) => {
-    if(typeof obj === 'string') return obj;
-    return Object.entries(obj).map(([k,v])=>`<b style="color:var(--tx)">${k}:</b> ${v}`).join(' · ');
-  };
-  for(const [section, data] of Object.entries(info)){
-    const icons = {battery:'🔋',network:'📶',memory:'💾',screen:'🖥',platform:'📱'};
-    html += `<div style="margin-bottom:6px"><span style="color:var(--a)">${icons[section]||'•'} ${section}</span><br><span style="opacity:.8">${fmt(data)}</span></div>`;
-  }
-  const box = $('device-info-box');
-  box.style.cssText = 'font-size:11px;color:var(--mu);line-height:1.9;background:var(--bg);border:1px solid var(--bd);border-radius:8px;padding:10px 12px';
-  box.innerHTML = html;
-  rlog('← данные устройства получены','in');
-}
-
-// ── Send: geolocation ─────────────────────────────────
-function sendGetLocation(){
-  if(dcSend(currentDevice,{type:'remote_location',reqId:'loc'+Date.now()}))
-    rlog('→ запрос геолокации...','ok');
-}
-function ctrlHandleLocation(msg){
-  const c = msg.coords;
-  const mapsUrl = `https://maps.google.com/?q=${c.lat},${c.lon}`;
-  const box = $('device-info-box');
-  box.innerHTML = `<div style="font-size:11px;color:var(--mu);line-height:2">
-    <span style="color:var(--a)">📍 Геолокация</span><br>
-    <b style="color:var(--tx)">Широта:</b> ${c.lat.toFixed(6)}<br>
-    <b style="color:var(--tx)">Долгота:</b> ${c.lon.toFixed(6)}<br>
-    <b style="color:var(--tx)">Точность:</b> ±${c.accuracy}м<br>
-    <a href="${mapsUrl}" target="_blank" style="color:var(--a);text-decoration:none">🗺 Открыть в картах →</a>
-  </div>`;
-  rlog('← геолокация: '+c.lat.toFixed(4)+', '+c.lon.toFixed(4),'in');
-  toast('📍 '+c.lat.toFixed(4)+', '+c.lon.toFixed(4),'ok',4000);
-}
-
-// ── Send: clipboard ───────────────────────────────────
-function sendClipboardRead(){
-  if(dcSend(currentDevice,{type:'remote_clipboard_read',reqId:'cb'+Date.now()}))
-    rlog('→ читаю буфер обмена...','ok');
-}
-function sendClipboardWrite(){
-  const inp = $('clipboard-text');
-  inp.style.display = inp.style.display==='none' ? '' : 'none';
-  if(inp.style.display!=='none') inp.focus();
-  else if(inp.value.trim()){
-    if(dcSend(currentDevice,{type:'remote_clipboard_write',text:inp.value,reqId:'cbw'+Date.now()}))
-      rlog('→ записываю в буфер: '+inp.value.slice(0,40),'ok');
-    inp.style.display='none';
-  }
-}
-function ctrlHandleClipboard(msg){
-  if(msg.action==='read'){
-    const el = $('clipboard-result');
-    el.style.display = '';
-    el.textContent = msg.text || '(пусто)';
-    rlog('← буфер: '+String(msg.text).slice(0,60),'in');
-  } else {
-    rlog('← буфер записан','ok');
-    toast('Буфер обмена обновлён','ok');
-  }
-}
-function copyClipboardResult(){
-  copyText($('clipboard-result').textContent, 'Скопировано');
-}
-
-// ── Send: camera ──────────────────────────────────────
-function sendCameraShot(facing){
-  rlog('→ снимок с камеры ('+facing+')...','ok');
-  toast('Запрашиваю снимок...');
-  dcSend(currentDevice,{type:'remote_camera',facing,reqId:'cam'+Date.now()});
-}
-function ctrlHandleCamera(msg){
-  const preview = $('camera-preview');
-  const img = $('camera-img');
-  img.src = msg.dataUrl;
-  preview.style.display = '';
-  $('camera-hint').style.display = 'none';
-  rlog('← снимок получен','in');
-  // Long tap on image to save
-  img.onclick = () => {
-    const a = document.createElement('a');
-    a.href = msg.dataUrl;
-    a.download = 'shot_'+Date.now()+'.jpg';
-    a.click();
-    toast('Снимок сохранён','ok');
-  };
-  img.title = 'Нажми чтобы сохранить';
-}
-
 // ── Chat ──────────────────────────────────────────────
-function addMsg(from,text,dir){
+function _chatDb(){return new Promise((res,rej)=>{const r=indexedDB.open('tvrc_chat',1);r.onupgradeneeded=e=>{const db=e.target.result;if(!db.objectStoreNames.contains('msgs')){const s=db.createObjectStore('msgs',{keyPath:'id',autoIncrement:true});s.createIndex('dev','dev');}};r.onsuccess=e=>res(e.target.result);r.onerror=rej;});}
+async function chatSave(dev,text,dir){try{const db=await _chatDb();const tx=db.transaction('msgs','readwrite');tx.objectStore('msgs').add({dev,text,dir,ts:Date.now()});}catch(_){}}
+async function chatLoad(dev){try{const db=await _chatDb();return await new Promise((res,rej)=>{const tx=db.transaction('msgs','readonly');const req=tx.objectStore('msgs').index('dev').getAll(IDBKeyRange.only(dev));req.onsuccess=()=>res(req.result||[]);req.onerror=rej;});}catch(_){return[];}}
+async function chatClear(dev){try{const db=await _chatDb();const tx=db.transaction('msgs','readwrite');const r2=tx.objectStore('msgs').index('dev').openCursor(IDBKeyRange.only(dev));r2.onsuccess=e=>{const c=e.target.result;if(c){c.delete();c.continue();}};}catch(_){}}
+async function loadChatHistory(dev){const msgs=$('msgs');msgs.innerHTML='';const h=await chatLoad(dev);if(h.length){const d=document.createElement('div');d.className='msg sys';d.textContent='── История ──';msgs.appendChild(d);h.forEach(m=>addMsg(m.dir==='out'?'__out__':m.dev,m.text,m.dir,m.ts));const sep=document.createElement('div');sep.className='msg sys';sep.textContent='── Сейчас ──';msgs.appendChild(sep);}msgs.scrollTop=msgs.scrollHeight;}
+async function clearChatHistory(){if(!currentDevice||!confirm('Очистить историю?'))return;await chatClear(currentDevice);$('msgs').innerHTML='';sysMsg('История очищена');}
+function addMsg(from,text,dir,ts){
   const msgs=$('msgs');
   const wrap=document.createElement('div');
   wrap.style.cssText='display:flex;flex-direction:column;align-items:'+(dir==='out'?'flex-end':'flex-start');
   const b=document.createElement('div'); b.className='msg '+dir; b.textContent=text;
-  const t=document.createElement('div'); t.className='msg-time'; t.textContent=tsNow();
+  const t=document.createElement('div'); t.className='msg-time';
+  t.textContent=ts?new Date(ts).toLocaleTimeString('ru',{hour:'2-digit',minute:'2-digit'}):tsNow();
   wrap.append(b,t); msgs.appendChild(wrap); msgs.scrollTop=msgs.scrollHeight;
+  if(!ts){
+    chatSave(dir==='out'?currentDevice:from,text,dir).catch(()=>{});
+    if(dir==='in') notifyIncoming(from,text);
+  }
 }
 function sysMsg(text){ const m=document.createElement('div'); m.className='msg sys'; m.textContent=text; $('msgs').appendChild(m); $('msgs').scrollTop=$('msgs').scrollHeight; }
 function sendMsg(){
@@ -1269,6 +1094,25 @@ function sendMsg(){
   if(dcSend(currentDevice,{type:'chat',text})){ addMsg(myId,text,'out'); inp.value=''; inp.style.height=''; }
 }
 function onMsgKey(e){ if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendMsg();} }
+
+// ── Notifications ────────────────────────────────────
+let _unread=0;
+async function requestNotifPermission(){
+  if(!('Notification' in window))return false;
+  if(Notification.permission==='granted')return true;
+  return(await Notification.requestPermission())==='granted';
+}
+function notifyIncoming(from,text){
+  _unread++;
+  if(navigator.setAppBadge)navigator.setAppBadge(_unread).catch(()=>{});
+  if(!document.hidden&&currentDevice===from)return;
+  if(Notification.permission!=='granted')return;
+  const name=peers[from]?.name||from.slice(0,16);
+  const n=new Notification('Tovsa RC — '+name,{body:text.slice(0,100),icon:'/tovsa-rc/icon-192.png',tag:'chat-'+from,renotify:true});
+  n.onclick=()=>{window.focus();if(peers[from]){openDevice(from);switchInnerTab('chat');}n.close();};
+}
+function clearBadge(){_unread=0;if(navigator.clearAppBadge)navigator.clearAppBadge().catch(()=>{});}
+document.addEventListener('visibilitychange',()=>{if(!document.hidden)clearBadge();});
 
 // ── Remote log ────────────────────────────────────────
 function rlog(msg,cls=''){
@@ -1337,7 +1181,6 @@ function generateQr(){
   try{ new QRCode(w,{text:myId,width:200,height:200,colorDark:'#000',colorLight:'#fff',correctLevel:QRCode.CorrectLevel.M}); _qrDone=true; }
   catch(_){ w.textContent=myId; }
   $('qr-id-text').textContent=myId;
-  $('qr-id-text').onclick=()=>copyText(myId,'ID скопирован');
 }
 function doAddPeer(){
   const id=$('add-id').value.trim(), name=$('add-name').value.trim();
@@ -1358,7 +1201,7 @@ function addPeer(id,name){
 
 // ── Copy ID ───────────────────────────────────────────
 function copyMyId(){
-  copyText(myId, 'ID скопирован');
+  navigator.clipboard.writeText(myId).then(()=>toast('ID скопирован','ok')).catch(()=>toast(myId,''  ,5000));
 }
 
 // ── Files: toggle my/remote ───────────────────────────
@@ -1529,18 +1372,250 @@ function ctxMenu(items){
   setTimeout(()=>{document.addEventListener('touchstart',dismiss,{passive:true});document.addEventListener('mousedown',dismiss);},100);
 }
 
+// ── Send: audio ──────────────────────────────────────
+function sendAudioRecord(sec){
+  if(!dcSend(currentDevice,{type:'remote_audio_record',duration:sec,reqId:'a'+Date.now()}))return;
+  rlog('→ запись '+sec+'с...','ok');
+  toast('Записываю '+sec+'с...');
+}
+function ctrlHandleAudio(msg){
+  const bytes=Uint8Array.from(atob(msg.b64),c=>c.charCodeAt(0));
+  const url=URL.createObjectURL(new Blob([bytes],{type:msg.mime||'audio/webm'}));
+  let pw=$('audio-player-wrap');
+  if(!pw){
+    pw=document.createElement('div');
+    pw.id='audio-player-wrap';
+    pw.style.marginBottom='4px';
+    $('r-log').before(pw);
+  }
+  const sec=Math.round(msg.duration/1000);
+  const wrap=document.createElement('div');
+  wrap.style.cssText='background:var(--bg);border:1px solid var(--bd);border-radius:10px;padding:10px 12px;display:flex;align-items:center;gap:8px';
+  const icon=document.createElement('span'); icon.style.fontSize='16px'; icon.textContent='🎤';
+  const audio=document.createElement('audio'); audio.controls=true; audio.src=url; audio.style.cssText='flex:1;height:32px;min-width:0';
+  const dl=document.createElement('button'); dl.textContent='⬇️'; dl.title='Сохранить';
+  dl.style.cssText='background:none;border:none;font-size:16px;cursor:pointer;color:var(--a)';
+  dl.onclick=()=>saveAudio(url);
+  wrap.append(icon,audio,dl); pw.innerHTML=''; pw.appendChild(wrap);
+  rlog('← аудио ('+sec+'с)','in'); toast('Аудио получено','ok');
+}
+function saveAudio(url){
+  const a=document.createElement('a');
+  a.href=url; a.download='audio_'+Date.now()+'.webm'; a.click();
+}
+
+// ── Share target ──────────────────────────────────────
+async function handleShareTarget(){
+  try{
+    const cache=await caches.open('share-target');
+    const keys=await cache.keys();
+    if(!keys.length) return;
+    const files=[];
+    for(const req of keys){
+      const res=await cache.match(req);
+      const blob=await res.blob();
+      files.push(new File([blob],req.url.split('/').pop()||'file',{type:blob.type}));
+      await cache.delete(req);
+    }
+    if(!files.length) return;
+    window._sharedFiles=files;
+    toast('Получено '+files.length+' файл(ов)','ok',4000);
+    if(currentDevice) _sendSharedFiles();
+    else toast('Открой устройство чтобы отправить','',4000);
+  }catch(e){dbg('share-target: '+e.message,'err');}
+}
+async function _sendSharedFiles(){
+  const files=window._sharedFiles;
+  if(!files?.length||!currentDevice) return;
+  window._sharedFiles=null;
+  for(const f of files) await fsCtrlSendFileObj(f);
+}
+async function fsCtrlSendFileObj(file){
+  const path='/'+[..._ctrlPath,file.name].join('/');
+  const CHUNK=48*1024, reqId='push'+Date.now();
+  let off=0, idx=0;
+  _showCtrlXfer(file.name,0);
+  while(off<file.size){
+    const ab=await file.slice(off,off+CHUNK).arrayBuffer();
+    const b64=btoa(String.fromCharCode(...new Uint8Array(ab)));
+    dcSend(currentDevice,{type:'fs_chunk',reqId,idx,b64,total:file.size,name:file.name,path});
+    off+=CHUNK; idx++;
+    _showCtrlXfer(file.name,Math.min(Math.round(off/file.size*100),99));
+    await new Promise(r=>setTimeout(r,0));
+  }
+  dcSend(currentDevice,{type:'fs_chunk_end',reqId,name:file.name,path});
+  _showCtrlXfer(file.name,100);
+  setTimeout(()=>_hideCtrlXfer(),1500);
+  rlog('⬆ '+file.name,'ok');
+}
+
+// ── Agent (local HTTP server) ─────────────────────────
+let _agentUrl = 'http://localhost:7070';
+let _agentCwd = '';
+
+async function agentFetch(endpoint, body=null){
+  const url = _agentUrl.replace(/\/+$/, '') + endpoint;
+  const opts = body
+    ? {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)}
+    : {method:'GET'};
+  const r = await fetch(url, opts);
+  if(!r.ok) throw new Error('HTTP '+r.status);
+  return r.json();
+}
+
+async function agentConnect(){
+  const url = $('agent-url')?.value?.trim();
+  if(url) _agentUrl = url;
+  const btn = $('agent-connect-btn');
+  const status = $('agent-status');
+  btn.disabled = true; btn.textContent = '...';
+  try{
+    const info = await agentFetch('/');
+    _agentCwd = info.cwd || '';
+    status.style.color = 'var(--a)';
+    status.textContent = '● подключён';
+    const infoEl = $('agent-info');
+    infoEl.style.display = '';
+    let infoHtml = '<b style="color:var(--tx)">Платформа:</b> '+esc(info.platform)
+      +' &nbsp; <b style="color:var(--tx)">Python:</b> '+esc(info.python||'?')
+      +'<br><b style="color:var(--tx)">Папка:</b> '+esc(info.cwd||'?');
+    if(info.termux){
+      infoHtml += '<br><span style="color:var(--a)">📱 Termux</span>';
+      if(!info.storage){
+        infoHtml += ' &nbsp; <span style="color:var(--w)">⚠ нет доступа к /sdcard</span>'
+          +'<br><code style="color:var(--w);font-size:10px">termux-setup-storage</code>'
+          +' <span style="opacity:.6">— запусти для доступа к файлам телефона</span>';
+      } else {
+        infoHtml += ' &nbsp; <span style="color:var(--mu)">✓ /sdcard доступен</span>';
+      }
+    }
+    infoEl.innerHTML = infoHtml;
+    $('agent-term').style.display = 'flex';
+    $('agent-cwd').textContent = '📁 '+_agentCwd;
+    $('agent-install-hint').style.display = 'none';
+    await agentRefreshLs();
+    toast('Агент подключён','ok');
+    rlog('← Агент: '+info.platform+' '+info.cwd,'ok');
+  }catch(e){
+    status.style.color = 'var(--e)';
+    status.textContent = '✗ недоступен';
+    $('agent-info').style.display='none';
+    $('agent-term').style.display='none';
+    toast('Агент недоступен — запусти agent.py на устройстве','err',4000);
+    rlog('← Агент: '+e.message,'err');
+  }
+  btn.disabled=false; btn.textContent='Проверить';
+}
+
+async function agentRefreshLs(){
+  try{
+    const data = await agentFetch('/ls');
+    _agentCwd = data.cwd;
+    $('agent-cwd').textContent = '📁 '+_agentCwd;
+    const ls = $('agent-ls');
+    if(!data.entries?.length){ ls.innerHTML='<div style="padding:8px 10px;font-size:11px;color:var(--mu)">Пусто</div>'; return; }
+    ls.innerHTML = data.entries.map(e=>{
+      const icon = e.type==='dir' ? '📁' : fileEmoji(e.name);
+      const size = e.size!=null ? ' <span style="opacity:.5">'+fmtSize(e.size)+'</span>' : '';
+      // Termux storage shortcuts have absolute _path
+      const cdArg = e._path || e.name;
+      const action = e.type==='dir'
+        ? `agentCd('${cdArg.replace(/'/g,"\'")}')`
+        : `agentOpenOrEdit('${e.name.replace(/'/g,"\'")}')`;
+      return `<div onclick="${action}" style="display:flex;align-items:center;gap:8px;padding:7px 10px;border-bottom:1px solid rgba(44,44,66,.4);cursor:pointer;font-size:12px" onmouseenter="this.style.background='var(--ad)'" onmouseleave="this.style.background=''">
+        <span style="font-size:16px;flex-shrink:0">${icon}</span>
+        <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(e.name)}</span>
+        ${size}
+      </div>`;
+    }).join('');
+  }catch(e){ rlog('Агент ls: '+e.message,'err'); }
+}
+
+async function agentCd(path){
+  try{
+    const data = await agentFetch('/cd', {path});
+    _agentCwd = data.cwd;
+    // Show friendly path name
+    const display = _agentCwd.replace(/^\/data\/data\/com\.termux\/files\/home\/storage\/shared/,'/sdcard')
+                              .replace(/^\/data\/data\/com\.termux\/files\/home/,'~');
+    $('agent-cwd').textContent = '📁 '+display;
+    await agentRefreshLs();
+  }catch(e){ toast('Ошибка: '+e.message,'err'); }
+}
+
+async function agentRun(){
+  const inp = $('agent-cmd');
+  const cmd = inp.value.trim();
+  if(!cmd) return;
+  inp.value = '';
+  const out = $('agent-output');
+  out.style.display = '';
+  out.textContent = '⏳ '+cmd+'...';
+  out.style.color = 'var(--mu)';
+  rlog('→ agent run: '+cmd,'ok');
+  try{
+    const data = await agentFetch('/run', {cmd, cwd:_agentCwd, timeout:30});
+    const text = (data.stdout||'') + (data.stderr ? '\n[stderr] '+data.stderr : '');
+    out.textContent = text || '(нет вывода)';
+    out.style.color = data.code===0 ? 'var(--a)' : 'var(--e)';
+    rlog('← agent ['+data.code+']: '+(text||'ok').slice(0,60),'in');
+    // Refresh file list after command
+    await agentRefreshLs();
+  }catch(e){
+    out.textContent = 'Ошибка: '+e.message;
+    out.style.color = 'var(--e)';
+    rlog('← agent error: '+e.message,'err');
+  }
+}
+
+async function agentOpenOrEdit(name){
+  const ext = name.split('.').pop().toLowerCase();
+  const textExts = ['txt','md','js','ts','py','sh','json','yaml','yml','html','css','xml','csv','log','conf','ini','toml','rs','go','rb','java','c','cpp','h'];
+  if(textExts.includes(ext)){
+    // Edit text file
+    try{
+      const data = await agentFetch('/read', {path:name});
+      openEditor(name, data.content, async(text)=>{
+        await agentFetch('/write', {path:name, content:text});
+        toast('Сохранено: '+name,'ok');
+        rlog('← agent write: '+name,'ok');
+      });
+    }catch(e){ toast('Ошибка чтения: '+e.message,'err'); }
+  } else {
+    // Open with system
+    ctxMenu([
+      {label:'▶ Открыть системно', action:async()=>{
+        try{
+          await agentFetch('/open', {path:name});
+          toast('Открываю: '+name,'ok');
+        }catch(e){toast('Ошибка: '+e.message,'err');}
+      }},
+      {label:'▶ Выполнить как команду', action:()=>{
+        $('agent-cmd').value = './'+name;
+        agentRun();
+      }},
+    ]);
+  }
+}
+
 // ── Pill ──────────────────────────────────────────────
 requestAnimationFrame(()=>{ const a=document.querySelector('.tab.act'); if(a) movePill(a.id); });
 window.addEventListener('resize',()=>{ const a=document.querySelector('.tab.act'); if(a) movePill(a.id); });
 
-// ── Service Worker ────────────────────────────────────
 if('serviceWorker' in navigator){
-  window.addEventListener('load', ()=>{
-    navigator.serviceWorker.register('./sw.js')
-      .then(r => dbg('SW зарегистрирован: '+r.scope,'ok'))
-      .catch(e => dbg('SW ошибка: '+e.message,'err'));
+  window.addEventListener('load',()=>{
+    navigator.serviceWorker.register('/tovsa-rc/sw.js').then(r=>dbg('SW: '+r.scope,'ok')).catch(e=>dbg('SW error: '+e.message,'err'));
   });
 }
+
+// ── Swipe back ───────────────────────────────────────
+(()=>{
+  let sx=0,sy=0,sw=false;
+  const dev=$('s-device');
+  dev.addEventListener('touchstart',e=>{sx=e.touches[0].clientX;sy=e.touches[0].clientY;sw=sx<28;},{passive:true});
+  dev.addEventListener('touchmove',e=>{if(!sw)return;const dx=e.touches[0].clientX-sx;if(dx>0&&Math.abs(e.touches[0].clientY-sy)<60)dev.style.transform='translateX('+Math.min(dx,window.innerWidth*.6)+'px)';},{passive:true});
+  dev.addEventListener('touchend',e=>{if(!sw)return;sw=false;const dx=e.changedTouches[0].clientX-sx;dev.style.transform='';if(dx>80)closeDevice();},{passive:true});
+})();
 
 // ── Init ──────────────────────────────────────────────
 (async()=>{
@@ -1553,6 +1628,7 @@ if('serviceWorker' in navigator){
   // Check for saved FS handle
   const h=await fsLoadHandle();
   if(h){ $('btn-restore-folder').style.display=''; }
+  if(new URL(location.href).searchParams.has('share-target')) handleShareTarget();
 })();
 </script>
 </body>

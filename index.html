@@ -469,12 +469,11 @@ select{cursor:pointer;appearance:none;
           <br><span style="opacity:.6">Windows PowerShell:</span><br>
           <code style="color:var(--a);user-select:all;cursor:pointer;font-size:10px" onclick="copyText(this.textContent,'Скопировано')" title="Нажми чтобы скопировать">python -c (Invoke-WebRequest https://tovsa7.github.io/tovsa-rc/bootstrap.py).Content</code>
           <br><span style="opacity:.6">Android (Termux):</span><br>
-          <code style="color:var(--a);user-select:all;cursor:pointer" onclick="copyText(this.textContent,'Скопировано')" title="Нажми чтобы скопировать">pkg install python curl openssl-tool && python3 -c "$(curl -fsSL https://tovsa7.github.io/tovsa-rc/bootstrap.py)"</code>
-          <br><span style="opacity:.5;font-size:10px">Для доступа к файлам: <code style="color:var(--w)" onclick="copyText('termux-setup-storage','Скопировано')">termux-setup-storage</code></span>
-          <br><span style="opacity:.5;font-size:10px">⚠ Первый раз: открой <code style="color:var(--a)" onclick="copyText('https://localhost:7071','Скопировано')">https://localhost:7071</code> в Chrome → «Дополнительно» → «Всё равно перейти», затем подключи агент ниже</span>
+          <code style="color:var(--a);user-select:all;cursor:pointer" onclick="copyText(this.textContent,'Скопировано')" title="Нажми чтобы скопировать">pkg install python curl && python3 -c "$(curl -fsSL https://tovsa7.github.io/tovsa-rc/bootstrap.py)"</code>
+          <br><span style="opacity:.5;font-size:10px">Для доступа к файлам телефона: <code style="color:var(--w)" onclick="copyText('termux-setup-storage','Скопировано')">termux-setup-storage</code></span>
         </div>
         <div class="row" style="align-items:center">
-          <input id="agent-url" placeholder="https://localhost:7071" value="https://localhost:7071" style="flex:1;font-size:11px">
+          <input id="agent-url" placeholder="http://localhost:7070" value="http://localhost:7070" style="flex:1;font-size:11px">
           <button class="btn sm" onclick="agentConnect()" id="agent-connect-btn">Подключить</button>
         </div>
         <div id="agent-info" style="display:none;font-size:11px;color:var(--mu);background:var(--bg);border:1px solid var(--bd);border-radius:8px;padding:8px 10px;line-height:1.8"></div>
@@ -1215,6 +1214,8 @@ function getRtc(id){
   entry.pc.onicecandidate = e => {
     if(e.candidate){
       entry._iceCandidates.push(e.candidate);
+      // Не отправляем host-кандидаты на сигналинг — они содержат локальные IP
+      if(e.candidate.type === 'host') return;
       wsSend({type:'RELAY',to:id,kind:'ice',data:e.candidate});
     } else {
       // Gathering complete — analyze NAT type
@@ -1830,7 +1831,7 @@ async function fsCtrlSendFileObj(file){
 }
 
 // ── Agent (local HTTP server) ─────────────────────────
-let _agentUrl = 'https://localhost:7071';
+let _agentUrl = 'http://localhost:7070';
 let _agentCwd = '';
 
 async function agentFetch(endpoint, body=null){
@@ -1881,16 +1882,8 @@ async function agentConnect(){
     status.textContent = '✗ недоступен';
     $('agent-info').style.display='none';
     $('agent-term').style.display='none';
-    // Подсказка: если HTTPS и Failed to fetch — скорее всего не принят сертификат
-    const isHttps = _agentUrl.startsWith('https://');
-    const isFetchErr = e.message.includes('fetch') || e.message.includes('network') || e.message === 'Failed to fetch';
-    if(isHttps && isFetchErr){
-      toast('Сначала открой ' + _agentUrl.replace(/\/$/, '') + ' в браузере и прими сертификат', 'err', 6000);
-      rlog('← Агент: сертификат не принят — открой ' + _agentUrl + ' в браузере', 'err');
-    } else {
-      toast('Агент недоступен — запусти agent.py на устройстве', 'err', 4000);
-      rlog('← Агент: ' + e.message, 'err');
-    }
+    toast('Агент недоступен — запусти agent.py на устройстве','err',4000);
+    rlog('← Агент: '+e.message,'err');
   }
   btn.disabled=false; btn.textContent='Проверить';
 }

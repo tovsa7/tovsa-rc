@@ -15,10 +15,13 @@ HTTPS на localhost:7071  (для PWA с GitHub Pages — ОБЯЗАТЕЛЬН�
 import json
 import os
 import ssl
+import struct
 import subprocess
 import sys
+import time
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
+from socketserver import ThreadingMixIn
 
 PORT  = 7071
 HOST  = "127.0.0.1"
@@ -40,6 +43,70 @@ def _default_cwd():
 
 CWD = _default_cwd()
 IS_TERMUX = Path("/data/data/com.termux/files/home").exists()
+
+# ── Screen: размер экрана ──────────────────────────────
+_screen_size: tuple[int, int] | None = None
+
+def _get_screen_size() -> tuple[int, int]:
+    """Возвращает (width, height) экрана. Кешируется."""
+    global _screen_size
+    if _screen_size:
+        return _screen_size
+    try:
+        # Android: wm size → "Physical size: 1080x2400"
+        r = subprocess.run(["wm", "size"], capture_output=True, text=True, timeout=3)
+        for token in r.stdout.split():
+            if "x" in token and token.replace("x", "").isdigit() is False:
+                parts = token.split("x")
+                if len(parts) == 2 and all(p.isdigit() for p in parts):
+                    _screen_size = (int(parts[0]), int(parts[1]))
+                    return _screen_size
+    except Exception:
+        pass
+    # Фолбек через PNG-заголовок screencap
+    try:
+        r = subprocess.run(["screencap", "-p"], capture_output=True, timeout=5)
+        if r.returncode == 0 and len(r.stdout) > 24:
+            w = struct.unpack(">I", r.stdout[16:20])[0]
+            h = struct.unpack(">I", r.stdout[20:24])[0]
+            _screen_size = (w, h)
+            return _screen_size
+    except Exception:
+        pass
+    return (1080, 1920)  # safe default
+
+
+def _capture_frame_png() -> bytes | None:
+    """Снимает скриншот, возвращает PNG-байты."""
+    try:
+        r = subprocess.run(["screencap", "-p"], capture_output=True, timeout=4)
+        return r.stdout if r.returncode == 0 and r.stdout else None
+    except Exception:
+        return None
+
+
+def _capture_frame_jpeg(quality: int = 60) -> bytes | None:
+    """Снимает скриншот в JPEG (нужен Pillow). Возвращает None если нет Pillow."""
+    try:
+        from PIL import Image
+        import io
+        r = subprocess.run(["screencap", "-p"], capture_output=True, timeout=4)
+        if r.returncode != 0 or not r.stdout:
+            return None
+        img = Image.open(io.BytesIO(r.stdout))
+        buf = io.BytesIO()
+        img.convert("RGB").save(buf, format="JPEG", quality=quality, optimize=False)
+        return buf.getvalue()
+    except Exception:
+        return None
+
+
+# Проверяем Pillow один раз при запуске
+try:
+    from PIL import Image as _PIL_Image
+    HAS_PILLOW = True
+except ImportError:
+    HAS_PILLOW = False
 
 
 # ── TLS: генерация самоподписанного сертификата ────────
@@ -171,6 +238,58 @@ class AgentHandler(BaseHTTPRequestHandler):
                 self.send_json({"error": str(e)}, 500)
             return
 
+        if self.path == "/screeninfo":
+            w, h = _get_screen_size()
+            self.send_json({"width": w, "height": h, "pillow": HAS_PILLOW})
+            return
+
+        if self.path.startswith("/stream"):
+            # Параметр ?q=60 — качество JPEG (если есть Pillow)
+            quality = 60
+            if "q=" in self.path:
+                try: quality = int(self.path.split("q=")[1].split("&")[0])
+                except Exception: pass
+            quality = max(10, min(95, quality))
+
+            self.send_response(200)
+            self.send_header("Content-Type",  "multipart/x-mixed-replace; boundary=frame")
+            self.send_header("Cache-Control", "no-cache, no-store")
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.end_headers()
+
+            use_jpeg = HAS_PILLOW
+            try:
+                while True:
+                    t0 = time.monotonic()
+                    if use_jpeg:
+                        frame = _capture_frame_jpeg(quality)
+                        mime  = b"image/jpeg"
+                    else:
+                        frame = _capture_frame_png()
+                        mime  = b"image/png"
+
+                    if frame is None:
+                        time.sleep(0.5)
+                        continue
+
+                    header = (
+                        b"--frame\r\n"
+                        b"Content-Type: " + mime + b"\r\n"
+                        b"Content-Length: " + str(len(frame)).encode() + b"\r\n\r\n"
+                    )
+                    self.wfile.write(header + frame + b"\r\n")
+                    self.wfile.flush()
+
+                    # Ограничиваем до 15 fps max
+                    elapsed = time.monotonic() - t0
+                    sleep   = max(0.0, 0.066 - elapsed)
+                    if sleep:
+                        time.sleep(sleep)
+
+            except (BrokenPipeError, ConnectionResetError, OSError):
+                pass  # клиент закрыл соединение
+            return
+
         self.send_json({"error": "Not found"}, 404)
 
     def do_POST(self):
@@ -281,11 +400,55 @@ class AgentHandler(BaseHTTPRequestHandler):
                 self.send_json({"error": str(e)}, 500)
             return
 
+        if self.path == "/input":
+            kind = data.get("type", "")
+            try:
+                w, h = _get_screen_size()
+                if kind == "tap":
+                    x = int(float(data["x"]) * w)
+                    y = int(float(data["y"]) * h)
+                    subprocess.run(["input", "tap", str(x), str(y)], timeout=3)
+                    self.send_json({"ok": True})
+
+                elif kind == "swipe":
+                    x1 = int(float(data["x1"]) * w)
+                    y1 = int(float(data["y1"]) * h)
+                    x2 = int(float(data["x2"]) * w)
+                    y2 = int(float(data["y2"]) * h)
+                    ms = int(data.get("ms", 200))
+                    subprocess.run(
+                        ["input", "swipe", str(x1), str(y1), str(x2), str(y2), str(ms)],
+                        timeout=3,
+                    )
+                    self.send_json({"ok": True})
+
+                elif kind == "text":
+                    # Экранируем для shell
+                    text = str(data.get("text", "")).replace("\\", "\\\\").replace(" ", "%s")
+                    subprocess.run(["input", "text", text], timeout=3)
+                    self.send_json({"ok": True})
+
+                elif kind == "key":
+                    # keycode: HOME=3, BACK=4, MENU=82, POWER=26, VOLUME_UP=24, VOLUME_DOWN=25
+                    keycode = str(data.get("keycode", ""))
+                    if keycode:
+                        subprocess.run(["input", "keyevent", keycode], timeout=3)
+                    self.send_json({"ok": True})
+
+                else:
+                    self.send_json({"error": f"Unknown input type: {kind}"}, 400)
+
+            except Exception as e:
+                self.send_json({"error": str(e)}, 500)
+            return
+
         self.send_json({"error": "Unknown endpoint"}, 404)
 
 
-# ── Сервер с опциональным SSL ──────────────────────────
-class TLSHTTPServer(HTTPServer):
+# ── Сервер с опциональным SSL (многопоточный) ──────────
+class TLSHTTPServer(ThreadingMixIn, HTTPServer):
+    daemon_threads = True  # потоки умирают вместе с процессом
+
     def __init__(self, addr, handler, ssl_ctx=None):
         super().__init__(addr, handler)
         self.ssl_ctx = ssl_ctx
@@ -314,12 +477,18 @@ def main():
 
     print(f"""
 ╔════════════════════════════════════════╗
-║         Tovsa RC Agent v1.1            ║
+║         Tovsa RC Agent v1.2            ║
 ╚════════════════════════════════════════╝
 
   Адрес:    https://{HOST}:{PORT}
   Папка:    {CWD}
   Платформа:{sys.platform}{'  (Termux)' if IS_TERMUX else ''}
+  JPEG:     {'✓ Pillow' if HAS_PILLOW else '✗ PNG (pip install pillow для ускорения)'}
+
+  Эндпоинты экрана:
+    GET  /screeninfo  — разрешение экрана
+    GET  /stream      — MJPEG стрим (?q=60 — качество)
+    POST /input       — касания, свайпы, текст, кнопки
 
   ╔══════════════════════════════════════════════════════╗
   ║  Первый раз:                                         ║

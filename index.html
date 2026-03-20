@@ -399,6 +399,7 @@ select{cursor:pointer;appearance:none;
     <button class="inner-tab act" id="itab-chat"     onclick="switchInnerTab('chat')">💬 Чат</button>
     <button class="inner-tab"     id="itab-commands" onclick="switchInnerTab('commands')">🖥 Команды</button>
     <button class="inner-tab"     id="itab-files"    onclick="switchInnerTab('files')">📁 Файлы</button>
+    <button class="inner-tab"     id="itab-screen"   onclick="switchInnerTab('screen')">📺 Экран</button>
   </div>
 
   <!-- ── CHAT panel ── -->
@@ -568,7 +569,63 @@ select{cursor:pointer;appearance:none;
   </div>
 </div>
 
-<!-- EDITOR MODAL -->
+<!-- ── SCREEN panel ── -->
+<div class="inner-panel" id="ipanel-screen">
+
+  <!-- Нет агента -->
+  <div id="screen-no-agent" style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:32px;text-align:center">
+    <div style="font-size:44px;opacity:.2">📺</div>
+    <div style="font-size:13px;font-weight:700;color:var(--mu)">Нужен агент</div>
+    <div style="font-size:11px;color:var(--mu);opacity:.7;line-height:1.7">Подключи агент во вкладке «Команды» и выдай root-права</div>
+    <button class="btn" onclick="switchInnerTab('commands')">⚡ К агенту</button>
+  </div>
+
+  <!-- Экран активен -->
+  <div id="screen-active" style="display:none;flex-direction:column;flex:1;min-height:0;overflow:hidden">
+
+    <!-- Тулбар -->
+    <div style="display:flex;align-items:center;gap:6px;padding:6px 10px;background:var(--sf);border-bottom:1px solid var(--bd);flex-shrink:0">
+      <span id="screen-fps" style="font-size:10px;color:var(--mu);min-width:36px">— fps</span>
+      <span id="screen-res" style="font-size:10px;color:var(--mu);flex:1"></span>
+      <button class="btn sm ghost" onclick="screenSetQuality(40)">Lo</button>
+      <button class="btn sm ghost" onclick="screenSetQuality(65)">Mid</button>
+      <button class="btn sm ghost" onclick="screenSetQuality(90)">Hi</button>
+      <button class="btn sm" id="screen-toggle-btn" onclick="screenToggle()" style="min-width:64px">▶ Старт</button>
+    </div>
+
+    <!-- Кнопки Android -->
+    <div style="display:flex;gap:6px;padding:5px 10px;background:var(--sf);border-bottom:1px solid var(--bd);flex-shrink:0">
+      <button class="btn sm ghost" style="flex:1" onclick="screenKey(3)"  title="Home">⌂</button>
+      <button class="btn sm ghost" style="flex:1" onclick="screenKey(4)"  title="Back">←</button>
+      <button class="btn sm ghost" style="flex:1" onclick="screenKey(187)" title="Recent">⧉</button>
+      <button class="btn sm ghost" style="flex:1" onclick="screenKey(24)" title="Vol+">🔊</button>
+      <button class="btn sm ghost" style="flex:1" onclick="screenKey(25)" title="Vol−">🔉</button>
+      <button class="btn sm ghost" style="flex:1" onclick="screenKey(26)" title="Power">⏻</button>
+    </div>
+
+    <!-- Превью + ввод текста -->
+    <div style="flex:1;min-height:0;position:relative;overflow:hidden;background:#000;display:flex;align-items:center;justify-content:center">
+      <img id="screen-img"
+           style="max-width:100%;max-height:100%;object-fit:contain;display:block;touch-action:none;cursor:crosshair"
+           draggable="false"
+           onpointerdown="screenPointerDown(event)"
+           onpointerup="screenPointerUp(event)"
+           onpointermove="screenPointerMove(event)">
+      <div id="screen-tap-flash"
+           style="position:absolute;border-radius:50%;background:rgba(0,217,255,.45);width:28px;height:28px;pointer-events:none;display:none;transform:translate(-50%,-50%);transition:opacity .3s"></div>
+    </div>
+
+    <!-- Ввод текста -->
+    <div style="display:flex;gap:6px;padding:6px 10px;background:var(--sf);border-top:1px solid var(--bd);flex-shrink:0">
+      <input id="screen-text-inp" placeholder="Текст для ввода..." style="flex:1;font-size:12px"
+             onkeydown="if(event.key==='Enter'){screenSendText();event.preventDefault()}">
+      <button class="btn sm" onclick="screenSendText()">⌨ Ввод</button>
+    </div>
+
+  </div>
+</div>
+
+</div>
 <div class="editor-modal" id="editor-modal">
   <div class="editor-bar">
     <button style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--mu);padding:0" onclick="closeEditor()">✕</button>
@@ -781,16 +838,16 @@ function closeDevice(){
 }
 
 function switchInnerTab(name){
-  const all=['chat','commands','files'];
+  const all=['chat','commands','files','screen'];
   const cur=all.find(t=>$('ipanel-'+t)?.classList.contains('on'));
   const dir=all.indexOf(name)>all.indexOf(cur)?'Right':'Left';
   all.forEach(t=>{
-    $('itab-'+t).classList.toggle('act',t===name);
+    $('itab-'+t)?.classList.toggle('act',t===name);
     const panel=$('ipanel-'+t); if(!panel)return;
     if(t===name){panel.style.animation='slideIn'+dir+' .2s cubic-bezier(.4,0,.2,1) both';panel.classList.add('on');}else{panel.classList.remove('on');panel.style.animation='';}
   });
-  // When switching to files, check RTC state for remote panel
   if(name==='files') fmCheckRemoteState();
+  if(name==='screen') screenCheckAgent();
 }
 
 function renderDeviceChat(id){
@@ -1214,8 +1271,6 @@ function getRtc(id){
   entry.pc.onicecandidate = e => {
     if(e.candidate){
       entry._iceCandidates.push(e.candidate);
-      // Не отправляем host-кандидаты на сигналинг — они содержат локальные IP
-      if(e.candidate.type === 'host') return;
       wsSend({type:'RELAY',to:id,kind:'ice',data:e.candidate});
     } else {
       // Gathering complete — analyze NAT type
@@ -1977,6 +2032,169 @@ async function agentOpenOrEdit(name){
       }},
     ]);
   }
+}
+
+// ── Screen mirror ────────────────────────────────────
+let _screenRunning = false;
+let _screenQuality = 65;
+let _screenFrameTs = 0;
+let _screenFpsCount = 0;
+let _screenFpsTs    = 0;
+let _screenW = 1;    // реальное разрешение устройства
+let _screenH = 1;
+// pointer tracking для свайпов
+let _screenPtrDown   = false;
+let _screenPtrDownX  = 0;
+let _screenPtrDownY  = 0;
+let _screenPtrDownTs = 0;
+
+function screenCheckAgent(){
+  const connected = $('agent-status')?.textContent?.includes('подключён');
+  $('screen-no-agent').style.display  = connected ? 'none' : '';
+  $('screen-active').style.display    = connected ? 'flex' : 'none';
+  return connected;
+}
+
+async function screenStart(){
+  if(!screenCheckAgent()) return;
+  // Получаем разрешение экрана
+  try{
+    const info = await agentFetch('/screeninfo');
+    _screenW = info.width  || 1080;
+    _screenH = info.height || 1920;
+    $('screen-res').textContent = _screenW + '×' + _screenH;
+  }catch(_){}
+
+  _screenRunning = true;
+  _screenFpsTs   = performance.now();
+  _screenFpsCount = 0;
+  $('screen-toggle-btn').textContent = '⏹ Стоп';
+  $('screen-toggle-btn').style.background = 'var(--e)';
+
+  const img = $('screen-img');
+  const streamUrl = _agentUrl.replace(/\/+$/,'') + '/stream?q=' + _screenQuality;
+  img.src = streamUrl;
+  img.onload = () => {};
+  // FPS-счётчик через MutationObserver не нужен — считаем через error/load не сработает для MJPEG
+  // Используем requestAnimationFrame + проверку naturalWidth (смена кадра меняет decode timestamp)
+  _screenFpsCount = 0;
+  _screenFpsTs = performance.now();
+  _screenLastNaturalSrc = '';
+  _screenAnimLoop();
+}
+
+let _screenLastNaturalSrc = '';
+function _screenAnimLoop(){
+  if(!_screenRunning) return;
+  const img = $('screen-img');
+  // Простой FPS через счёт decode событий невозможен для <img> MJPEG
+  // Считаем через периодическую проверку currentSrc + времени
+  _screenFpsCount++;
+  const now = performance.now();
+  if(now - _screenFpsTs >= 1000){
+    $('screen-fps').textContent = _screenFpsCount + ' fps';
+    _screenFpsCount = 0;
+    _screenFpsTs = now;
+  }
+  requestAnimationFrame(_screenAnimLoop);
+}
+
+function screenStop(){
+  _screenRunning = false;
+  const img = $('screen-img');
+  img.src = '';
+  $('screen-toggle-btn').textContent = '▶ Старт';
+  $('screen-toggle-btn').style.background = '';
+  $('screen-fps').textContent = '— fps';
+}
+
+function screenToggle(){
+  if(_screenRunning) screenStop(); else screenStart();
+}
+
+function screenSetQuality(q){
+  _screenQuality = q;
+  if(_screenRunning){ screenStop(); screenStart(); }
+}
+
+// ── Нормализуем координаты внутри <img> → 0..1 ────────
+function _screenNormCoords(e){
+  const img  = $('screen-img');
+  const rect = img.getBoundingClientRect();
+  // <img> с object-fit:contain — реальная картинка занимает не весь bounding rect
+  const imgAspect  = _screenW / _screenH;
+  const boxAspect  = rect.width / rect.height;
+  let   drawW, drawH, offX, offY;
+  if(imgAspect > boxAspect){
+    drawW = rect.width;  drawH = rect.width / imgAspect;
+    offX = 0;            offY = (rect.height - drawH) / 2;
+  } else {
+    drawH = rect.height; drawW = rect.height * imgAspect;
+    offY = 0;            offX = (rect.width - drawW) / 2;
+  }
+  const x = (e.clientX - rect.left - offX) / drawW;
+  const y = (e.clientY - rect.top  - offY) / drawH;
+  return { x: Math.max(0, Math.min(1, x)), y: Math.max(0, Math.min(1, y)) };
+}
+
+function _screenFlash(e){
+  const fl = $('screen-tap-flash');
+  const img = $('screen-img');
+  const rect = img.getBoundingClientRect();
+  fl.style.left    = (e.clientX - rect.left) + 'px';
+  fl.style.top     = (e.clientY - rect.top)  + 'px';
+  fl.style.display = 'block';
+  fl.style.opacity = '1';
+  setTimeout(()=>{ fl.style.opacity='0'; setTimeout(()=>{ fl.style.display='none'; },300); },150);
+}
+
+function screenPointerDown(e){
+  if(!_screenRunning) return;
+  e.preventDefault();
+  _screenPtrDown   = true;
+  _screenPtrDownTs = Date.now();
+  const c = _screenNormCoords(e);
+  _screenPtrDownX = c.x;
+  _screenPtrDownY = c.y;
+  $('screen-img').setPointerCapture(e.pointerId);
+}
+
+function screenPointerUp(e){
+  if(!_screenRunning || !_screenPtrDown) return;
+  e.preventDefault();
+  _screenPtrDown = false;
+  const c  = _screenNormCoords(e);
+  const dx = Math.abs(c.x - _screenPtrDownX);
+  const dy = Math.abs(c.y - _screenPtrDownY);
+  const dt = Date.now() - _screenPtrDownTs;
+  _screenFlash(e);
+
+  if(dx < 0.02 && dy < 0.02){
+    // Тап
+    agentFetch('/input',{type:'tap', x:c.x, y:c.y}).catch(()=>{});
+  } else {
+    // Свайп
+    const ms = Math.max(100, Math.min(dt, 600));
+    agentFetch('/input',{type:'swipe',
+      x1:_screenPtrDownX, y1:_screenPtrDownY,
+      x2:c.x, y2:c.y, ms}).catch(()=>{});
+  }
+}
+
+function screenPointerMove(e){
+  // Только для визуальной обратной связи — не отправляем каждое событие
+}
+
+function screenKey(keycode){
+  agentFetch('/input',{type:'key', keycode}).catch(()=>{});
+}
+
+function screenSendText(){
+  const inp = $('screen-text-inp');
+  const text = inp.value;
+  if(!text) return;
+  inp.value = '';
+  agentFetch('/input',{type:'text', text}).catch(()=>{});
 }
 
 // ── NAT Detection ────────────────────────────────────

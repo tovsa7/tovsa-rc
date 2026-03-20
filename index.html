@@ -695,8 +695,9 @@ function openDevice(id){
   $('topbar-title').textContent = p?.name || id.slice(0,16);
   $('my-id-badge').style.display='none';
   $('conn-dot').style.display='none';
-  // Hide tabbar
+  // Hide tabbar and background screens
   $('tabbar').style.display='none';
+  document.querySelectorAll('.scr.on').forEach(el => el.style.display='none');
   // Show device screen
   loadChatHistory(id).catch(()=>{});
   $('s-device').style.animation='slideInFromRight .25s cubic-bezier(.4,0,.2,1) both';
@@ -710,6 +711,7 @@ function openDevice(id){
 function closeDevice(){
   $('s-device').style.animation='slideOutToRight .22s cubic-bezier(.4,0,.2,1) both';
   setTimeout(()=>{ $('s-device').classList.remove('on'); $('s-device').style.animation=''; },220);
+  document.querySelectorAll('.scr.on').forEach(el => el.style.display='');
   $('tabbar').style.display='flex';
   $('topbar-back').style.display='none';
   $('topbar-title').textContent='TOVSA RC';
@@ -834,7 +836,9 @@ function connectToServer(){
     $('btn-connect').disabled=false; $('btn-connect').textContent='Подключиться';
     $('btn-add').disabled=true;
     dbg(`WS закрыт: ${e.code} ${e.reason||''}`,e.code===1000?'':'err');
+    // Не реконнектить при нормальном закрытии или серверных ошибках (4xxx = протокол)
     if(e.code===1000||e.code===1001) return;
+    if(e.code>=4000 && e.code<5000) return; // IdTaken, AuthFailed и т.д. — не реконнектить
     if(typeof window._wsRA==='undefined') window._wsRA=0;
     window._wsRA++;
     const delay=Math.min(1000*Math.pow(1.5,window._wsRA-1),30000);
@@ -843,6 +847,53 @@ function connectToServer(){
   };
   ws.onerror=()=>{ setDot(''); $('btn-connect').disabled=false; $('btn-connect').textContent='Подключиться'; toast('Ошибка подключения','err'); };
   ws.onmessage=(e)=>{ let m; try{m=JSON.parse(e.data);}catch{return;} handleServer(m); };
+}
+
+function handleServerErr(code, msg){
+  const ERRORS = {
+    4000: 'Некорректный ID',
+    4001: 'ID уже занят — перезагрузи страницу или сбрось ключ в настройках',
+    4002: 'Сервер переполнен',
+    4003: 'Ошибка аутентификации — сбрось ключ в настройках',
+    4004: 'Таймаут аутентификации',
+    4005: 'Таймаут HELLO',
+    4008: 'Таймаут keepalive',
+    4029: 'Слишком много запросов',
+  };
+  const text = ERRORS[code] || ('Ошибка сервера: '+code+(msg?' — '+msg:''));
+
+  // Для IdTaken — показать модалку с объяснением, не спамить тост
+  if(code === 4001){
+    showIdTakenError();
+    return;
+  }
+  toast(text, 'err', 4000);
+}
+
+function showIdTakenError(){
+  // Убрать если уже показано
+  if(document.getElementById('id-taken-modal')) return;
+  const m = document.createElement('div');
+  m.id = 'id-taken-modal';
+  m.style.cssText = 'position:fixed;inset:0;z-index:400;background:rgba(0,0,0,.8);display:flex;flex-direction:column;justify-content:flex-end;backdrop-filter:blur(4px)';
+  m.innerHTML = `
+    <div style="background:var(--sf);border-radius:20px 20px 0 0;border-top:1px solid var(--bd);padding:20px;padding-bottom:calc(20px + env(safe-area-inset-bottom,0px))" onclick="event.stopPropagation()">
+      <div style="font-size:14px;font-weight:700;color:var(--e);margin-bottom:10px">⚠ ID уже занят (4001)</div>
+      <div style="font-size:12px;color:var(--mu);line-height:1.9;margin-bottom:14px">
+        Этот ID уже подключён к серверу.<br>
+        Обычно причина — другая вкладка или старое соединение не успело закрыться.<br><br>
+        <b style="color:var(--tx)">Что делать:</b><br>
+        • Закрой другие вкладки с Tovsa RC<br>
+        • Подожди 30–60 секунд и попробуй снова<br>
+        • Или сгенерируй новый ID (ключ) в настройках
+      </div>
+      <div style="display:flex;flex-direction:column;gap:8px">
+        <button onclick="document.getElementById('id-taken-modal').remove();setTimeout(()=>connectToServer(),2000);this.textContent='Подождём 2с...';this.disabled=true" style="background:var(--a);color:#000;border:none;border-radius:10px;padding:12px;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer">Попробовать снова</button>
+        <button onclick="document.getElementById('id-taken-modal').remove();goTab('settings')" style="background:none;border:1px solid var(--bd);color:var(--mu);border-radius:10px;padding:12px;font-family:inherit;font-size:12px;cursor:pointer">Сбросить ключ в настройках</button>
+      </div>
+    </div>`;
+  m.onclick = ()=>m.remove();
+  document.body.appendChild(m);
 }
 
 function wsSend(msg){
@@ -867,7 +918,7 @@ function handleServer(m){
       schedulePresence(); break;
     case 'ERR':
       dbg('ERR '+m.code+' '+(m.msg||''),'err');
-      toast('Ошибка '+m.code+': '+(m.msg||m.reason||''),'err');
+      handleServerErr(m.code, m.msg||m.reason||'');
       $('btn-connect').disabled=false; $('btn-connect').textContent='Подключиться'; break;
     case 'RELAY': dbg('← RELAY '+m.kind+' from='+String(m.from).slice(0,14),'info'); handleRelay(m.from,m.kind,m.data); break;
     case 'RELAY-ACK': if(!m.delivered) toast('Устройство недоступно: '+String(m.to).slice(0,16)); break;
@@ -894,17 +945,50 @@ function handlePresenceResult(m){
 }
 
 // ── WebRTC ────────────────────────────────────────────
-const RTC_CFG={iceServers:[{urls:'stun:stun.l.google.com:19302'},{urls:'stun:stun1.l.google.com:19302'}]};
+const RTC_CFG_BASE=[{urls:'stun:stun.l.google.com:19302'},{urls:'stun:stun1.l.google.com:19302'}];
+function getRtcCfg(){ return {iceServers:[...RTC_CFG_BASE], iceCandidatePoolSize:4}; }
 
 function getRtc(id){
   if(rtcs[id]) return rtcs[id];
-  const entry={pc:new RTCPeerConnection(RTC_CFG),dc:null,state:'new',pending:[]};
+  const entry={pc:new RTCPeerConnection(getRtcCfg()),dc:null,state:'new',pending:[]};
   rtcs[id]=entry;
-  entry.pc.onicecandidate=e=>{ if(e.candidate) wsSend({type:'RELAY',to:id,kind:'ice',data:e.candidate}); };
+  // ICE candidate tracking for NAT detection
+  entry._iceCandidates = [];
+  entry._iceTimer = null;
+
+  entry.pc.onicecandidate = e => {
+    if(e.candidate){
+      entry._iceCandidates.push(e.candidate);
+      wsSend({type:'RELAY',to:id,kind:'ice',data:e.candidate});
+    } else {
+      // Gathering complete — analyze NAT type
+      analyzeNat(id, entry._iceCandidates);
+    }
+  };
+
+  entry.pc.onicegatheringstatechange = () => {
+    if(entry.pc.iceGatheringState === 'complete'){
+      analyzeNat(id, entry._iceCandidates);
+    }
+  };
+
+  entry.pc.oniceconnectionstatechange = () => {
+    const ice = entry.pc.iceConnectionState;
+    dbg('ICE ['+id.slice(0,14)+'] → '+ice, ice==='connected'||ice==='completed'?'ok':ice==='failed'?'err':'info');
+    if(ice === 'failed'){
+      showNatWarning(id);
+    }
+  };
+
   entry.pc.onconnectionstatechange=()=>{
     const s=entry.pc.connectionState;
     dbg('RTC ['+id.slice(0,14)+'] → '+s,s==='connected'?'ok':s==='failed'?'err':'info');
-    if(s==='connected') entry.state='open';
+    if(s==='connected'){
+      entry.state='open';
+      clearTimeout(entry._natCheckTimer);
+      clearTimeout(entry._natWarnTimer);
+      document.getElementById('nat-warning')?.remove();
+    }
     else if(['failed','disconnected','closed'].includes(s)) entry.state='closed';
     if(currentDevice===id) updateDevRtcBadge(id);
     renderDeviceList();
@@ -945,6 +1029,7 @@ async function createOffer(id){
   const dc=entry.pc.createDataChannel('tvrc',{ordered:true});
   setupDc(id,dc);
   entry.state='connecting';
+  startNatCheckTimer(id,entry);
   if(currentDevice===id) updateDevRtcBadge(id);
   try{
     const offer=await entry.pc.createOffer();
@@ -963,6 +1048,7 @@ async function handleRelay(from,kind,data){
       const ans=await entry.pc.createAnswer();
       await entry.pc.setLocalDescription(ans);
       wsSend({type:'RELAY',to:from,kind:'answer',data:ans});
+      startNatCheckTimer(from,entry);
       for(const c of entry.pending) await entry.pc.addIceCandidate(c).catch(()=>{});
       entry.pending=[];
       rlog('← offer от '+from.slice(0,14)+', отвечаю','ok');
@@ -1596,6 +1682,141 @@ async function agentOpenOrEdit(name){
       }},
     ]);
   }
+}
+
+// ── NAT Detection ────────────────────────────────────
+function analyzeNat(id, candidates){
+  if(!candidates?.length) return;
+
+  const types    = candidates.map(c => c.type);
+  const hasHost  = types.includes('host');
+  const hasSrflx = types.includes('srflx');
+
+  // Symmetric NAT признаки:
+  // — есть srflx кандидаты (за NAT)
+  // — нет host-only (разные сети)
+  // — нет relay
+  // — несколько srflx с разными портами (разные маппинги = Symmetric)
+  const srflxPorts = candidates
+    .filter(c => c.type === 'srflx')
+    .map(c => c.port);
+  const uniquePorts = new Set(srflxPorts).size;
+  const likelySymmetric = hasSrflx && uniquePorts > 1;
+  const maybeSymmetric  = hasSrflx && !hasHost; // разные сети, один STUN
+
+  const info = {
+    hasHost, hasSrflx,
+    likelySymmetric,
+    maybeSymmetric,
+    candidateTypes: [...new Set(types)],
+    localNetwork: hasHost && !hasSrflx,
+  };
+
+  rtcs[id]._natInfo = info;
+  dbg('NAT ['+id.slice(0,14)+']: '+info.candidateTypes.join(', ')
+    +(info.localNetwork?' (локальная сеть)':'')
+    +(likelySymmetric?' ⚠ Symmetric NAT':'')
+    +(maybeSymmetric&&!likelySymmetric?' ? возможно Symmetric':''), 'info');
+
+  // Показываем предупреждение сразу после сбора кандидатов
+  // если признаки Symmetric NAT — не ждём failed
+  if((likelySymmetric || maybeSymmetric) && id === currentDevice){
+    // Небольшая задержка — дать шанс на подключение
+    entry._natWarnTimer = setTimeout(()=>{
+      if(rtcs[id]?.state !== 'open'){
+        showSymmetricNatWarning();
+      }
+    }, 5000);
+  }
+}
+
+// Таймер — если ICE завис в checking (Symmetric NAT часто не даёт failed)
+function startNatCheckTimer(id, entry){
+  entry._natCheckTimer = setTimeout(()=>{
+    const ice = entry.pc.iceConnectionState;
+    if(ice === 'checking' || ice === 'new'){
+      dbg('ICE timeout ['+id.slice(0,14)+'] — вероятно Symmetric NAT','err');
+      if(id === currentDevice) showSymmetricNatWarning();
+    }
+  }, 15000); // 15 секунд без подключения = проблема
+}
+
+function showNatWarning(id){
+  const info = rtcs[id]?._natInfo;
+  if(info?.localNetwork){
+    if(currentDevice===id) toast('Ошибка RTC в локальной сети. Проверь что оба устройства онлайн.','err',5000);
+    return;
+  }
+  if(currentDevice===id) showSymmetricNatWarning();
+}
+
+function showSymmetricNatWarning(){
+  // Не показывать если WS не подключён (проблема не в NAT)
+  if(!isOpen) return;
+  if(document.getElementById('nat-warning')) return;
+
+  const warn = document.createElement('div');
+  warn.id = 'nat-warning';
+  warn.style.cssText = [
+    'position:fixed',
+    'bottom:calc(80px + env(safe-area-inset-bottom,0px))',
+    'left:12px;right:12px;z-index:200',
+    'background:var(--sf)',
+    'border:1px solid rgba(229,192,123,.45)',
+    'border-radius:14px;padding:14px 16px',
+    'box-shadow:0 4px 24px rgba(0,0,0,.5)',
+    'animation:slideInRight .25s ease',
+  ].join(';');
+
+  warn.innerHTML = `
+    <div style="display:flex;align-items:flex-start;gap:10px">
+      <span style="font-size:22px;flex-shrink:0">⚠️</span>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:13px;font-weight:700;color:var(--w);margin-bottom:6px">
+          Symmetric NAT — P2P недоступен
+        </div>
+        <div style="font-size:11px;color:var(--mu);line-height:1.8">
+          Одно из устройств за Symmetric NAT (обычно мобильная сеть 4G/5G или корпоративная сеть).
+          Прямое соединение невозможно без ретранслятора.
+        </div>
+        <div style="display:flex;gap:8px;margin-top:10px">
+          <button onclick="showNatExplainer()" style="flex:1;background:var(--ad);border:1px solid rgba(0,255,157,.2);color:var(--a);border-radius:8px;padding:8px;font-family:inherit;font-size:11px;font-weight:700;cursor:pointer">Подробнее</button>
+          <button onclick="document.getElementById('nat-warning').remove()" style="background:none;border:1px solid var(--bd);color:var(--mu);border-radius:8px;padding:8px 12px;font-family:inherit;font-size:11px;cursor:pointer">✕</button>
+        </div>
+      </div>
+    </div>`;
+  document.body.appendChild(warn);
+  setTimeout(()=>warn?.remove(), 20000);
+}
+
+function showNatExplainer(){
+  document.getElementById('nat-warning')?.remove();
+  const sheet = document.createElement('div');
+  sheet.style.cssText = 'position:fixed;inset:0;z-index:300;background:rgba(0,0,0,.8);display:flex;flex-direction:column;justify-content:flex-end;backdrop-filter:blur(4px)';
+  sheet.innerHTML = `
+    <div style="background:var(--sf);border-radius:20px 20px 0 0;border-top:1px solid var(--bd);padding:20px;padding-bottom:calc(20px + env(safe-area-inset-bottom,0px));max-height:80vh;overflow-y:auto" onclick="event.stopPropagation()">
+      <div style="font-size:14px;font-weight:700;color:var(--w);margin-bottom:14px">⚠️ Symmetric NAT</div>
+      <div style="font-size:12px;color:var(--mu);line-height:2">
+        <b style="color:var(--tx)">Проблема:</b> твоя сеть (или сеть собеседника) использует Symmetric NAT —
+        каждый новый запрос получает новый внешний порт.
+        WebRTC не может согласовать соединение напрямую.<br><br>
+        <b style="color:var(--tx)">Кто виноват:</b><br>
+        • Мобильные операторы (4G/5G) — почти всегда Symmetric NAT<br>
+        • Корпоративные сети<br>
+        • Некоторые домашние роутеры с жёсткими настройками<br><br>
+        <b style="color:var(--tx)">Что можно сделать:</b><br>
+        • Подключить оба устройства к одной Wi-Fi сети<br>
+        • Использовать Wi-Fi вместо мобильной сети на одном из устройств<br>
+        • Включить VPN (меняет тип NAT для приложений)<br><br>
+        <b style="color:var(--tx)">Как проверить свой NAT:</b><br>
+        Открой браузер на устройстве и введи в консоли DevTools:<br>
+        <code style="color:var(--a);font-size:10px;display:block;margin:6px 0;padding:6px 8px;background:var(--bg);border-radius:6px;user-select:all" onclick="copyText(this.textContent,'Скопировано')">const pc=new RTCPeerConnection({iceServers:[{urls:'stun:stun.l.google.com:19302'}]});pc.createDataChannel('t');pc.createOffer().then(o=>pc.setLocalDescription(o));pc.onicecandidate=e=>{if(e.candidate)console.log(e.candidate.type,e.candidate.address,e.candidate.port)};</code>
+        Если видишь несколько <code style="color:var(--a)">srflx</code> с разными портами — Symmetric NAT.
+      </div>
+      <button onclick="this.closest('[style*=fixed]').remove()" style="width:100%;margin-top:16px;background:none;border:1px solid var(--bd);color:var(--mu);border-radius:10px;padding:12px;font-family:inherit;font-size:12px;cursor:pointer">Закрыть</button>
+    </div>`;
+  sheet.onclick = ()=>sheet.remove();
+  document.body.appendChild(sheet);
 }
 
 // ── Pill ──────────────────────────────────────────────

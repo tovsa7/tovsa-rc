@@ -469,11 +469,12 @@ select{cursor:pointer;appearance:none;
           <br><span style="opacity:.6">Windows PowerShell:</span><br>
           <code style="color:var(--a);user-select:all;cursor:pointer;font-size:10px" onclick="copyText(this.textContent,'Скопировано')" title="Нажми чтобы скопировать">python -c (Invoke-WebRequest https://tovsa7.github.io/tovsa-rc/bootstrap.py).Content</code>
           <br><span style="opacity:.6">Android (Termux):</span><br>
-          <code style="color:var(--a);user-select:all;cursor:pointer" onclick="copyText(this.textContent,'Скопировано')" title="Нажми чтобы скопировать">pkg install python curl && python3 -c "$(curl -fsSL https://tovsa7.github.io/tovsa-rc/bootstrap.py)"</code>
-          <br><span style="opacity:.5;font-size:10px">Для доступа к файлам телефона: <code style="color:var(--w)" onclick="copyText('termux-setup-storage','Скопировано')">termux-setup-storage</code></span>
+          <code style="color:var(--a);user-select:all;cursor:pointer" onclick="copyText(this.textContent,'Скопировано')" title="Нажми чтобы скопировать">pkg install python curl openssl-tool && python3 -c "$(curl -fsSL https://tovsa7.github.io/tovsa-rc/bootstrap.py)"</code>
+          <br><span style="opacity:.5;font-size:10px">Для доступа к файлам: <code style="color:var(--w)" onclick="copyText('termux-setup-storage','Скопировано')">termux-setup-storage</code></span>
+          <br><span style="opacity:.5;font-size:10px">⚠ Первый раз: открой <code style="color:var(--a)" onclick="copyText('https://localhost:7071','Скопировано')">https://localhost:7071</code> в Chrome → «Дополнительно» → «Всё равно перейти», затем подключи агент ниже</span>
         </div>
         <div class="row" style="align-items:center">
-          <input id="agent-url" placeholder="http://localhost:7070" value="http://localhost:7070" style="flex:1;font-size:11px">
+          <input id="agent-url" placeholder="https://localhost:7071" value="https://localhost:7071" style="flex:1;font-size:11px">
           <button class="btn sm" onclick="agentConnect()" id="agent-connect-btn">Подключить</button>
         </div>
         <div id="agent-info" style="display:none;font-size:11px;color:var(--mu);background:var(--bg);border:1px solid var(--bd);border-radius:8px;padding:8px 10px;line-height:1.8"></div>
@@ -630,6 +631,64 @@ select{cursor:pointer;appearance:none;
 
 // ── State ─────────────────────────────────────────────
 let ws = null, myId = '', isOpen = false;
+
+// ── Leader Election ───────────────────────────────────
+const LEADER_CH='tvrc_leader', LEADER_TTL=800, LEADER_PING=600;
+const _tabId=Date.now()+Math.random();
+let _isLeader=false,_leaderChannel=null,_leaderPingTimer=null,_leaderDeadTimer=null;
+
+function initLeaderElection(){
+  if(!window.BroadcastChannel){_becomeLeader();return;}
+  _leaderChannel=new BroadcastChannel(LEADER_CH);
+  _leaderChannel.onmessage=e=>{
+    if(e.data.tabId===_tabId) return;
+    const {type}=e.data;
+    if(type==='ping'){
+      clearTimeout(_leaderDeadTimer);
+      if(!_isLeader){_syncLeaderState(e.data);_leaderDeadTimer=setTimeout(_becomeLeader,LEADER_TTL);}
+    } else if(type==='claim'){
+      if(_isLeader&&e.data.tabId<_tabId)_resignLeader();
+    } else if(type==='close'){
+      if(!_isLeader){clearTimeout(_leaderDeadTimer);_becomeLeader();}
+    } else if(type==='status'){
+      if(!_isLeader)_syncLeaderState(e.data);
+    }
+  };
+  _leaderDeadTimer=setTimeout(_becomeLeader,LEADER_TTL);
+}
+function _becomeLeader(){
+  clearTimeout(_leaderDeadTimer);_leaderDeadTimer=null;_isLeader=true;
+  _broadcastLeader('claim');
+  _leaderPingTimer=setInterval(()=>_broadcastLeader('ping'),LEADER_PING);
+  _updateLeaderIndicator();
+  const savedSrv=localStorage.getItem('tvrc_srv');
+  if(savedSrv&&!isOpen)connectToServer();
+}
+function _resignLeader(){
+  _isLeader=false;clearInterval(_leaderPingTimer);_leaderPingTimer=null;
+  _updateLeaderIndicator();
+  if(_leaderChannel)_leaderChannel.postMessage({type:'close',tabId:_tabId});
+  _leaderDeadTimer=setTimeout(_becomeLeader,LEADER_TTL);
+}
+function _broadcastLeader(type){
+  if(!_leaderChannel)return;
+  _leaderChannel.postMessage({type,tabId:_tabId,isOpen,myId});
+}
+function _syncLeaderState(data){
+  if(data.isOpen===undefined)return;
+  const was=isOpen; isOpen=!!data.isOpen;
+  if(isOpen!==was){
+    setDot(isOpen?'on':'');
+    if(isOpen){$('my-id-badge').style.display='inline-block';$('btn-add').disabled=false;$('btn-connect').textContent='Переподключить';}
+    else{setDot('');$('btn-add').disabled=true;}
+  }
+}
+function _updateLeaderIndicator(){
+  let ind=document.getElementById('leader-ind');
+  if(!ind){ind=document.createElement('span');ind.id='leader-ind';ind.title='Эта вкладка управляет соединением';ind.style.cssText='font-size:11px;color:var(--a);margin-right:4px;transition:opacity .3s';$('conn-dot')?.before(ind);}
+  ind.textContent=_isLeader?'👑':'';ind.style.opacity=_isLeader?'1':'0';
+}
+window.addEventListener('beforeunload',()=>{if(_isLeader&&_leaderChannel)_leaderChannel.postMessage({type:'close',tabId:_tabId});});
 let currentDevice = null;   // peerId of open device screen
 const peers = {};           // id → { id, name, emoji, online }
 const rtcs  = {};           // id → { pc, dc, state, pending }
@@ -768,9 +827,205 @@ function updateDevRtcBadge(id){
   renderDeviceList();
 }
 
+
+// ══════════════════════════════════════════════════════
+// Double Ratchet E2E (X3DH-lite + Signal DR spec)
+// ══════════════════════════════════════════════════════
+const DR_INFO_INIT  = new TextEncoder().encode('tvrc-dr-init-v1');
+const DR_INFO_ROOT  = new TextEncoder().encode('tvrc-dr-root-v1');
+const DR_INFO_MSG   = new TextEncoder().encode('tvrc-dr-msg-v1');
+const DR_INFO_CHAIN = new TextEncoder().encode('tvrc-dr-chain-v1');
+const DR_MAX_SKIP   = 100;
+const MKSKIPPED_TTL = 5*60*1000;
+
+function _drB64u(buf){let s='';for(const b of buf)s+=String.fromCharCode(b);return btoa(s).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');}
+function _drFromB64u(s){return Uint8Array.from(atob(s.replace(/-/g,'+').replace(/_/g,'/')),c=>c.charCodeAt(0));}
+function _drConcat(...aa){const t=aa.reduce((n,a)=>n+a.length,0),o=new Uint8Array(t);let i=0;for(const a of aa){o.set(a,i);i+=a.length;}return o;}
+
+async function _drGenDH(){
+  const kp=await crypto.subtle.generateKey({name:'X25519'},true,['deriveBits']);
+  const pub=new Uint8Array(await crypto.subtle.exportKey('raw',kp.publicKey));
+  const privJwk=await crypto.subtle.exportKey('jwk',kp.privateKey);
+  return {pub,privJwk};
+}
+async function _drDH(privJwk,pubBytes){
+  const priv=await crypto.subtle.importKey('jwk',privJwk,{name:'X25519'},false,['deriveBits']);
+  const pub=await crypto.subtle.importKey('raw',pubBytes,{name:'X25519'},false,[]);
+  return new Uint8Array(await crypto.subtle.deriveBits({name:'X25519',public:pub},priv,256));
+}
+async function _drHkdf1(ikm,salt,info){
+  const k=await crypto.subtle.importKey('raw',ikm,{name:'HKDF'},false,['deriveBits']);
+  return new Uint8Array(await crypto.subtle.deriveBits({name:'HKDF',hash:'SHA-256',salt,info},k,256));
+}
+async function _drHkdf2(ikm,salt,info){
+  const k=await crypto.subtle.importKey('raw',ikm,{name:'HKDF'},false,['deriveBits']);
+  const b=new Uint8Array(await crypto.subtle.deriveBits({name:'HKDF',hash:'SHA-256',salt,info},k,512));
+  return [b.slice(0,32),b.slice(32)];
+}
+async function _drKdfChain(ck){
+  return {mk:await _drHkdf1(ck,new Uint8Array([1]),DR_INFO_MSG), ckNext:await _drHkdf1(ck,new Uint8Array([2]),DR_INFO_CHAIN)};
+}
+async function _drKdfRoot(rk,dh){const [a,b]=await _drHkdf2(dh,rk,DR_INFO_ROOT);return {rkNew:a,ckNew:b};}
+
+async function _drEncryptRaw(mk,pt){
+  const iv=crypto.getRandomValues(new Uint8Array(12));
+  const key=await crypto.subtle.importKey('raw',mk,'AES-GCM',false,['encrypt']);
+  const ct=new Uint8Array(await crypto.subtle.encrypt({name:'AES-GCM',iv},key,new TextEncoder().encode(pt)));
+  return _drB64u(_drConcat(iv,ct));
+}
+async function _drDecryptRaw(mk,b64u){
+  const buf=_drFromB64u(b64u);
+  const key=await crypto.subtle.importKey('raw',mk,'AES-GCM',false,['decrypt']);
+  return new TextDecoder().decode(await crypto.subtle.decrypt({name:'AES-GCM',iv:buf.slice(0,12)},key,buf.slice(12)));
+}
+
+function _drCtx(id){
+  if(!rtcs[id]._dr) rtcs[id]._dr={st:null,ready:false,isInit:false,myEK:null,queue:Promise.resolve(),pending:[],busy:false};
+  return rtcs[id]._dr;
+}
+function _drClear(id){
+  const d=rtcs[id]?._dr;if(!d)return;
+  if(d.st){for(const e of d.st.MKSKIPPED.values())(e.mk||e)?.fill(0);d.st.MKSKIPPED.clear();d.st.CKs?.fill(0);d.st.CKr?.fill(0);d.st.RK?.fill(0);}
+  rtcs[id]._dr={st:null,ready:false,isInit:false,myEK:null,queue:Promise.resolve(),pending:[],busy:false};
+}
+
+async function _drInitSt(d,ms,isInit,myEK,theirEK){
+  const dh=await _drDH(myEK.privJwk,theirEK);
+  const {rkNew:RK,ckNew:CK}=await _drKdfRoot(ms,dh);
+  dh.fill(0);ms.fill(0);
+  d.st={RK,CKs:isInit?CK:null,CKr:isInit?null:CK,DHs:myEK,DHr:theirEK,Ns:0,Nr:0,PN:0,MKSKIPPED:new Map(),ready:true};
+  if(isInit){
+    const nDH=await _drGenDH();
+    const ds=await _drDH(nDH.privJwk,theirEK);
+    const {rkNew:r1,ckNew:c1}=await _drKdfRoot(d.st.RK,ds);
+    ds.fill(0);d.st.RK.fill(0);
+    d.st.RK=r1;d.st.CKs=c1;d.st.DHs=nDH;
+  }
+  d.ready=true;
+  dbg('[DR] ready isInit='+isInit,'ok');
+}
+
+async function _drRatchet(d,newPub){
+  const s=d.st,old={CKr:s.CKr,RK:s.RK};
+  s.PN=s.Ns;s.Ns=0;s.Nr=0;
+  const dh=await _drDH(s.DHs.privJwk,newPub);
+  const {rkNew,ckNew}=await _drKdfRoot(s.RK,dh);
+  dh.fill(0);
+  s.DHs=await _drGenDH();s.DHr=newPub;s.RK=rkNew;s.CKr=ckNew;s.CKs=null;
+  old.CKr?.fill(0);old.RK?.fill(0);
+}
+
+async function _drEnc(d,payload){
+  const s=d.st;
+  if(!s.CKs){
+    const dh=await _drDH(s.DHs.privJwk,s.DHr);
+    const {rkNew,ckNew}=await _drKdfRoot(s.RK,dh);
+    dh.fill(0);s.RK.fill(0);s.RK=rkNew;s.CKs=ckNew;s.Ns=0;
+  }
+  const {mk,ckNext}=await _drKdfChain(s.CKs);s.CKs=ckNext;
+  const msg={_t:'__dr__',n:s.Ns,pn:s.PN};
+  if(s.Ns===0)msg.dh=_drB64u(s.DHs.pub);
+  s.Ns++;
+  msg.ct=await _drEncryptRaw(mk,typeof payload==='string'?payload:JSON.stringify(payload));
+  mk.fill(0);return msg;
+}
+
+async function _drSkip(d,until){
+  const s=d.st;if(!s.CKr)return;
+  if(until-s.Nr>DR_MAX_SKIP)throw new Error('DR skip overflow');
+  const now=Date.now();
+  while(s.Nr<until){const {mk,ckNext}=await _drKdfChain(s.CKr);s.CKr=ckNext;s.MKSKIPPED.set('s:'+s.Nr,{mk,t:now});s.Nr++;}
+}
+
+async function _drDec(d,msg){
+  const s=d.st;
+  const theirPub=msg.dh?_drFromB64u(msg.dh):null;
+  const now=Date.now();
+  for(const [k,e] of s.MKSKIPPED)if(now-e.t>MKSKIPPED_TTL){e.mk.fill(0);s.MKSKIPPED.delete(k);}
+  const sk=(theirPub?_drB64u(theirPub):'s')+':'+msg.n;
+  if(s.MKSKIPPED.has(sk)){const e=s.MKSKIPPED.get(sk);s.MKSKIPPED.delete(sk);const r=await _drDecryptRaw(e.mk,msg.ct);e.mk.fill(0);return r;}
+  if(theirPub&&(!s.CKr||!s.DHr||_drB64u(theirPub)!==_drB64u(s.DHr))){
+    if(s.CKr)await _drSkip(d,msg.pn);
+    await _drRatchet(d,theirPub);
+  }
+  if(s.CKr)await _drSkip(d,msg.n);
+  if(!s.CKr)throw new Error('DR no CKr');
+  const {mk,ckNext}=await _drKdfChain(s.CKr);s.CKr=ckNext;s.Nr++;
+  const r=await _drDecryptRaw(mk,msg.ct);mk.fill(0);return r;
+}
+
+function _drSend(id,payload){
+  const d=_drCtx(id);
+  const fn=async()=>{try{const m=await _drEnc(d,payload);const e=rtcs[id];if(e?.dc?.readyState==='open')e.dc.send(JSON.stringify(m));}catch(e){dbg('[DR] enc err: '+e.message,'err');}};
+  if(d.ready){d.queue=d.queue.then(fn,fn);}else{d.pending.push(fn);}
+}
+async function _drFlush(id){const d=_drCtx(id);for(const fn of d.pending)await fn();d.pending=[];}
+
+async function _drHello(id){
+  const d=_drCtx(id);d.isInit=true;d.myEK=await _drGenDH();
+  return {_t:'__dr_hello__',ek:_drB64u(d.myEK.pub),ik:_drB64u(myPubKeyRaw||new Uint8Array(32)),ikEnc:_myEncKey?_drB64u(_drFromB64u(_myEncKey.publicKeyB64u)):undefined};
+}
+async function _drOnHello(id,msg){
+  const d=_drCtx(id);if(d.busy)return null;d.busy=true;
+  try{
+    const theirEK=_drFromB64u(msg.ek);d.myEK=await _drGenDH();
+    const dh1=await _drDH(d.myEK.privJwk,theirEK);
+    const theirIK=msg.ikEnc?_drFromB64u(msg.ikEnc):null;
+    const dh2=theirIK?await _drDH(d.myEK.privJwk,theirIK):new Uint8Array(32);
+    const dh3=_myEncKey?await _drDH(_myEncKey.privateJwk,theirEK):new Uint8Array(32);
+    const ms=await _drHkdf1(_drConcat(dh1,dh2,dh3),new Uint8Array(32),DR_INFO_INIT);
+    dh1.fill(0);dh2.fill(0);dh3.fill(0);
+    await _drInitSt(d,ms,false,d.myEK,theirEK);
+    await _drFlush(id);
+    return {_t:'__dr_hello_ack__',ek:_drB64u(d.myEK.pub),ik:_drB64u(myPubKeyRaw||new Uint8Array(32)),ikEnc:_myEncKey?_drB64u(_drFromB64u(_myEncKey.publicKeyB64u)):undefined};
+  }finally{d.busy=false;}
+}
+async function _drOnAck(id,msg){
+  const d=_drCtx(id);if(!d.myEK)throw new Error('DR no EK');
+  const theirEK=_drFromB64u(msg.ek);
+  const dh1=await _drDH(d.myEK.privJwk,theirEK);
+  const dh2=_myEncKey?await _drDH(_myEncKey.privateJwk,theirEK):new Uint8Array(32);
+  const theirIK=msg.ikEnc?_drFromB64u(msg.ikEnc):null;
+  const dh3=theirIK?await _drDH(d.myEK.privJwk,theirIK):new Uint8Array(32);
+  const ms=await _drHkdf1(_drConcat(dh1,dh2,dh3),new Uint8Array(32),DR_INFO_INIT);
+  dh1.fill(0);dh2.fill(0);dh3.fill(0);
+  await _drInitSt(d,ms,true,d.myEK,theirEK);
+  d.myEK=null;
+  await _drFlush(id);
+}
+
+function _updateDrBadge(id){
+  if(currentDevice!==id)return;
+  const badge=$('dr-badge');if(!badge)return;
+  const ready=rtcs[id]?._dr?.ready;
+  badge.textContent=ready?'🔒 E2E':'🔓';
+  badge.style.color=ready?'var(--a)':'var(--mu)';
+  badge.title=ready?'Double Ratchet X3DH + AES-256-GCM':'Шифрование не установлено';
+}
+// ══ End Double Ratchet ════════════════════════════════
 // ── Auth & Key ────────────────────────────────────────
 let _authPrivKey=null, _authPubRaw=null;
 
+let _myEncKey=null;
+async function loadOrGenEncKey(){
+  try{
+    const saved=localStorage.getItem('tvrc_enc_key');
+    if(saved){
+      const jwk=JSON.parse(saved);
+      const priv=await crypto.subtle.importKey('jwk',jwk,{name:'X25519'},true,['deriveBits']);
+      const pub=await crypto.subtle.importKey('jwk',{...jwk,key_ops:[]},{name:'X25519'},true,[]);
+      const pubRaw=new Uint8Array(await crypto.subtle.exportKey('raw',pub));
+      const pubB64u=btoa(String.fromCharCode(...pubRaw)).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+      _myEncKey={privateJwk:jwk,publicKeyB64u:pubB64u};return;
+    }
+  }catch(_){_myEncKey=null;}
+  const kp=await crypto.subtle.generateKey({name:'X25519'},true,['deriveBits']);
+  const privJwk=await crypto.subtle.exportKey('jwk',kp.privateKey);
+  const pubRaw=new Uint8Array(await crypto.subtle.exportKey('raw',kp.publicKey));
+  const pubB64u=btoa(String.fromCharCode(...pubRaw)).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+  _myEncKey={privateJwk:privJwk,publicKeyB64u:pubB64u};
+  localStorage.setItem('tvrc_enc_key',JSON.stringify(privJwk));
+}
 async function loadOrGenKey(){
   try{
     const saved=localStorage.getItem('tvrc_key');
@@ -809,9 +1064,10 @@ async function signAuth(nonce){
 
 async function resetKey(){
   if(!confirm('Удалить ключ и сгенерировать новый? ID изменится.')) return;
-  localStorage.removeItem('tvrc_key'); localStorage.removeItem('tvrc_pubkey'); localStorage.removeItem('tvrc_my_id');
-  _authPrivKey=null; _authPubRaw=null;
+  localStorage.removeItem('tvrc_key'); localStorage.removeItem('tvrc_pubkey'); localStorage.removeItem('tvrc_my_id'); localStorage.removeItem('tvrc_enc_key');
+  _authPrivKey=null; _authPubRaw=null; _myEncKey=null;
   await loadOrGenKey();
+  await loadOrGenEncKey();
   generateQr();
   if(ws){ try{ws.close();}catch(_){} ws=null; isOpen=false; setDot(''); }
   toast('Новый ключ создан. Переподключитесь.','ok');
@@ -1002,23 +1258,29 @@ function getRtc(id){
       setTimeout(()=>{ if(rtcs[id]?.state!=='open'&&peers[id]){ try{rtcs[id]?.pc?.close();}catch(_){} delete rtcs[id]; createOffer(id); } },3000);
     }
   };
-  entry.pc.ondatachannel=e=>setupDc(id,e.channel);
+  entry.pc.ondatachannel=e=>{entry._drIsInitiator=false;setupDc(id,e.channel);};
   return entry;
 }
 
 function setupDc(id,dc){
   const entry=rtcs[id]; if(!entry) return;
   entry.dc=dc;
-  dc.onopen=()=>{
+  dc.onopen=async()=>{
     entry.state='open';
-    if(currentDevice===id){ updateDevRtcBadge(id); fmCheckRemoteState(); }
+    if(currentDevice===id){updateDevRtcBadge(id);fmCheckRemoteState();}
     renderDeviceList();
     rlog('✓ DataChannel открыт','ok');
     toast('RTC подключён!','ok');
+    if(entry._drIsInitiator){
+      try{const h=await _drHello(id);dc.send(JSON.stringify(h));dbg('[DR] hello →','info');}
+      catch(e){dbg('[DR] hello err: '+e.message,'err');}
+    }
   };
   dc.onclose=()=>{
     entry.state='closed';
-    if(currentDevice===id) updateDevRtcBadge(id);
+    _drClear(id);
+    _updateDrBadge(id);
+    if(currentDevice===id)updateDevRtcBadge(id);
     renderDeviceList();
   };
   dc.onmessage=e=>{ let m; try{m=JSON.parse(e.data);}catch{return;} handleDc(id,m); };
@@ -1027,6 +1289,7 @@ function setupDc(id,dc){
 async function createOffer(id){
   const entry=getRtc(id);
   const dc=entry.pc.createDataChannel('tvrc',{ordered:true});
+  entry._drIsInitiator=true;
   setupDc(id,dc);
   entry.state='connecting';
   startNatCheckTimer(id,entry);
@@ -1075,6 +1338,29 @@ function dcSend(id,msg){
 }
 
 function handleDc(from,msg){
+  if(msg._t==='__dr_hello__'){
+    _drOnHello(from,msg).then(ack=>{
+      if(!ack)return;
+      const e=rtcs[from];if(e?.dc?.readyState==='open')e.dc.send(JSON.stringify(ack));
+      dbg('[DR] ack sent','info');_updateDrBadge(from);
+    }).catch(e=>dbg('[DR] hello err: '+e.message,'err'));
+    return;
+  }
+  if(msg._t==='__dr_hello_ack__'){
+    _drOnAck(from,msg).then(()=>{dbg('[DR] handshake done','ok');_updateDrBadge(from);})
+    .catch(e=>dbg('[DR] ack err: '+e.message,'err'));
+    return;
+  }
+  if(msg._t==='__dr__'){
+    _drDec(_drCtx(from),msg).then(pt=>{
+      let m;try{m=JSON.parse(pt);}catch{m={type:'chat',text:pt};}
+      handleDcMsg(from,m);
+    }).catch(e=>dbg('[DR] dec err: '+e.message,'err'));
+    return;
+  }
+  handleDcMsg(from,msg);
+}
+function handleDcMsg(from,msg){
   switch(msg.type){
     case 'chat': addMsg(from,msg.text,'in'); break;
     case 'remote_result': rlog('← '+msg.cmd+': '+String(msg.result).slice(0,200),'in'); toast('✓ '+String(msg.result).slice(0,50),'ok'); break;
@@ -1176,8 +1462,16 @@ function addMsg(from,text,dir,ts){
 }
 function sysMsg(text){ const m=document.createElement('div'); m.className='msg sys'; m.textContent=text; $('msgs').appendChild(m); $('msgs').scrollTop=$('msgs').scrollHeight; }
 function sendMsg(){
-  const inp=$('msg-inp'), text=inp.value.trim(); if(!text)return;
-  if(dcSend(currentDevice,{type:'chat',text})){ addMsg(myId,text,'out'); inp.value=''; inp.style.height=''; }
+  const inp=$('msg-inp'),text=inp.value.trim();if(!text)return;
+  const dr=rtcs[currentDevice]?._dr;
+  if(dr?.ready){
+    _drSend(currentDevice,JSON.stringify({type:'chat',text}));
+    addMsg(myId,text,'out');
+    chatSave(currentDevice,text,'out').catch(()=>{});
+  } else if(dcSend(currentDevice,{type:'chat',text})){
+    addMsg(myId,text,'out');
+  }
+  inp.value='';inp.style.height='';
 }
 function onMsgKey(e){ if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendMsg();} }
 
@@ -1536,7 +1830,7 @@ async function fsCtrlSendFileObj(file){
 }
 
 // ── Agent (local HTTP server) ─────────────────────────
-let _agentUrl = 'http://localhost:7070';
+let _agentUrl = 'https://localhost:7071';
 let _agentCwd = '';
 
 async function agentFetch(endpoint, body=null){
@@ -1587,8 +1881,16 @@ async function agentConnect(){
     status.textContent = '✗ недоступен';
     $('agent-info').style.display='none';
     $('agent-term').style.display='none';
-    toast('Агент недоступен — запусти agent.py на устройстве','err',4000);
-    rlog('← Агент: '+e.message,'err');
+    // Подсказка: если HTTPS и Failed to fetch — скорее всего не принят сертификат
+    const isHttps = _agentUrl.startsWith('https://');
+    const isFetchErr = e.message.includes('fetch') || e.message.includes('network') || e.message === 'Failed to fetch';
+    if(isHttps && isFetchErr){
+      toast('Сначала открой ' + _agentUrl.replace(/\/$/, '') + ' в браузере и прими сертификат', 'err', 6000);
+      rlog('← Агент: сертификат не принят — открой ' + _agentUrl + ' в браузере', 'err');
+    } else {
+      toast('Агент недоступен — запусти agent.py на устройстве', 'err', 4000);
+      rlog('← Агент: ' + e.message, 'err');
+    }
   }
   btn.disabled=false; btn.textContent='Проверить';
 }
@@ -1841,6 +2143,8 @@ if('serviceWorker' in navigator){
 // ── Init ──────────────────────────────────────────────
 (async()=>{
   await loadOrGenKey();
+  await loadOrGenEncKey();
+  initLeaderElection();
   const saved=localStorage.getItem('tvrc_srv');
   if(saved&&saved!=='wss://tovsa-signaling.onrender.com/signal'){ $('srv-select').value='custom'; $('srv-custom').style.display=''; $('srv-custom').value=saved; }
   try{ Object.assign(peers,JSON.parse(localStorage.getItem('tvrc_peers')||'{}')); }catch(_){}

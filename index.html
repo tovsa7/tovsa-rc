@@ -567,13 +567,9 @@ select{cursor:pointer;appearance:none;
       </div>
     </div>
   </div>
-</div>
 
-<!-- ── SCREEN panel ── -->
-<div class="inner-panel" id="ipanel-screen">
-
-  <!-- Экран активен -->
-  <div id="screen-active" style="display:flex;flex-direction:column;flex:1;min-height:0;overflow:hidden">
+  <!-- ── SCREEN panel ── -->
+  <div class="inner-panel" id="ipanel-screen">
 
     <!-- Тулбар -->
     <div style="display:flex;align-items:center;gap:6px;padding:6px 10px;background:var(--sf);border-bottom:1px solid var(--bd);flex-shrink:0">
@@ -587,15 +583,15 @@ select{cursor:pointer;appearance:none;
 
     <!-- Кнопки Android -->
     <div style="display:flex;gap:6px;padding:5px 10px;background:var(--sf);border-bottom:1px solid var(--bd);flex-shrink:0">
-      <button class="btn sm ghost" style="flex:1" onclick="screenKey(3)"  title="Home">⌂</button>
-      <button class="btn sm ghost" style="flex:1" onclick="screenKey(4)"  title="Back">←</button>
+      <button class="btn sm ghost" style="flex:1" onclick="screenKey(3)"   title="Home">⌂</button>
+      <button class="btn sm ghost" style="flex:1" onclick="screenKey(4)"   title="Back">←</button>
       <button class="btn sm ghost" style="flex:1" onclick="screenKey(187)" title="Recent">⧉</button>
-      <button class="btn sm ghost" style="flex:1" onclick="screenKey(24)" title="Vol+">🔊</button>
-      <button class="btn sm ghost" style="flex:1" onclick="screenKey(25)" title="Vol−">🔉</button>
-      <button class="btn sm ghost" style="flex:1" onclick="screenKey(26)" title="Power">⏻</button>
+      <button class="btn sm ghost" style="flex:1" onclick="screenKey(24)"  title="Vol+">🔊</button>
+      <button class="btn sm ghost" style="flex:1" onclick="screenKey(25)"  title="Vol−">🔉</button>
+      <button class="btn sm ghost" style="flex:1" onclick="screenKey(26)"  title="Power">⏻</button>
     </div>
 
-    <!-- Превью + ввод текста -->
+    <!-- Превью -->
     <div style="flex:1;min-height:0;position:relative;overflow:hidden;background:#000;display:flex;align-items:center;justify-content:center">
       <img id="screen-img"
            style="max-width:100%;max-height:100%;object-fit:contain;display:block;touch-action:none;cursor:crosshair"
@@ -615,10 +611,9 @@ select{cursor:pointer;appearance:none;
     </div>
 
   </div>
-</div>
 
 </div>
-<div class="editor-modal" id="editor-modal">
+
   <div class="editor-bar">
     <button style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--mu);padding:0" onclick="closeEditor()">✕</button>
     <span class="editor-filename" id="editor-fname">—</span>

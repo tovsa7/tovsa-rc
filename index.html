@@ -5,9 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Tovsa RC</title>
 <link rel="manifest" href="/manifest.json">
-<link rel="apple-touch-icon" href="/icon-192.png">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-<link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
 <style>
 :root{
@@ -17,62 +15,24 @@
 }
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
 html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--tx);font-family:'JetBrains Mono',monospace}
-
-/* ── Layout ── */
 #app{position:fixed;inset:0;display:flex;flex-direction:column}
-#topbar{
-  display:flex;align-items:center;gap:10px;
-  padding:12px 16px;padding-top:calc(12px + env(safe-area-inset-top,0px));
-  background:var(--sf);border-bottom:1px solid var(--bd);flex-shrink:0;
-}
+#topbar{display:flex;align-items:center;gap:10px;padding:12px 16px;padding-top:calc(12px + env(safe-area-inset-top,0px));background:var(--sf);border-bottom:1px solid var(--bd);flex-shrink:0}
 #topbar-title{font-size:13px;font-weight:700;letter-spacing:1.5px;flex:1}
 #screens{flex:1;position:relative;overflow:hidden}
 .scr{position:absolute;inset:0;display:none;flex-direction:column;overflow:hidden}
 .scr.on{display:flex}
-#tabbar{
-  display:flex;background:var(--sf);border-top:1px solid var(--bd);
-  padding-bottom:env(safe-area-inset-bottom,0px);flex-shrink:0;position:relative;
-}
-#tab-pill{
-  position:absolute;top:0;height:2px;background:var(--a);
-  border-radius:0 0 2px 2px;transition:left .2s ease,width .2s ease;
-}
-.tab{
-  flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;
-  padding:10px 4px;border:none;background:transparent;color:var(--mu);
-  font-family:inherit;font-size:9px;font-weight:700;letter-spacing:.8px;
-  cursor:pointer;transition:color .15s;
-}
+#tabbar{display:flex;background:var(--sf);border-top:1px solid var(--bd);padding-bottom:env(safe-area-inset-bottom,0px);flex-shrink:0;position:relative}
+#tab-pill{position:absolute;top:0;height:2px;background:var(--a);border-radius:0 0 2px 2px;transition:left .2s,width .2s}
+.tab{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;padding:10px 4px;border:none;background:transparent;color:var(--mu);font-family:inherit;font-size:9px;font-weight:700;letter-spacing:.8px;cursor:pointer;transition:color .15s}
 .tab .ti{font-size:18px;line-height:1}
 .tab.act{color:var(--a)}
-.badge{
-  position:absolute;top:6px;right:6px;
-  background:var(--e);color:#fff;border-radius:99px;
-  font-size:9px;font-weight:700;padding:1px 5px;min-width:16px;text-align:center;
-}
-
-/* ── Device screen overlay ── */
-#s-device{
-  position:fixed;inset:0;z-index:100;background:var(--bg);
-  flex-direction:column;display:none;
-}
+.badge{position:absolute;top:6px;right:6px;background:var(--e);color:#fff;border-radius:99px;font-size:9px;font-weight:700;padding:1px 5px;min-width:16px;text-align:center}
+#s-device{position:fixed;inset:0;z-index:100;background:var(--bg);flex-direction:column;display:none}
 #s-device.on{display:flex}
-.dev-header{
-  display:flex;align-items:center;gap:10px;
-  padding:12px 16px;padding-top:calc(12px + env(safe-area-inset-top,0px));
-  background:var(--sf);border-bottom:1px solid var(--bd);flex-shrink:0;
-}
-.dev-header-info{flex:1;min-width:0}
-.dev-name{font-size:13px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dev-header{display:flex;align-items:center;gap:10px;padding:12px 16px;padding-top:calc(12px + env(safe-area-inset-top,0px));background:var(--sf);border-bottom:1px solid var(--bd);flex-shrink:0}
+.dev-name{font-size:13px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1}
 .dev-sub{font-size:10px;color:var(--mu);margin-top:2px}
-
-/* ── Common components ── */
-.btn{
-  background:var(--a);color:#000;border:none;border-radius:10px;
-  padding:12px 18px;font-family:inherit;font-size:12px;font-weight:700;
-  cursor:pointer;letter-spacing:.5px;display:inline-flex;align-items:center;
-  justify-content:center;gap:6px;transition:opacity .15s,transform .1s;
-}
+.btn{background:var(--a);color:#000;border:none;border-radius:10px;padding:12px 18px;font-family:inherit;font-size:12px;font-weight:700;cursor:pointer;letter-spacing:.5px;display:inline-flex;align-items:center;justify-content:center;gap:6px;transition:opacity .15s,transform .1s}
 .btn:active{opacity:.8;transform:scale(.97)}
 .btn:disabled{opacity:.3;cursor:not-allowed;transform:none}
 .btn.sm{padding:7px 12px;font-size:11px;border-radius:8px}
@@ -80,142 +40,73 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--tx);font-
 .btn.ghost:active{background:var(--sf)}
 .btn.danger{background:var(--e);color:#fff}
 .btn.full{width:100%}
-input,textarea,select{
-  width:100%;background:var(--bg);border:1px solid var(--bd);border-radius:10px;
-  padding:11px 14px;color:var(--tx);font-family:inherit;font-size:12px;
-  outline:none;transition:border-color .2s;
-}
-input:focus,textarea:focus{border-color:var(--a)}
-input::placeholder,textarea::placeholder{color:var(--mu)}
-textarea{resize:none;line-height:1.5}
-.card{
-  background:var(--sf);border:1px solid var(--bd);border-radius:14px;
-  padding:14px;display:flex;flex-direction:column;gap:10px;
-}
+input,select{width:100%;background:var(--bg);border:1px solid var(--bd);border-radius:10px;padding:11px 14px;color:var(--tx);font-family:inherit;font-size:12px;outline:none;transition:border-color .2s}
+input:focus,select:focus{border-color:var(--a)}
+input::placeholder{color:var(--mu)}
+.card{background:var(--sf);border:1px solid var(--bd);border-radius:14px;padding:14px;display:flex;flex-direction:column;gap:10px}
 .card-title{font-size:10px;color:var(--mu);letter-spacing:1.5px;text-transform:uppercase}
 .row{display:flex;gap:8px;align-items:center}
-.section-scroll{flex:1;overflow-y:auto;padding:12px;display:flex;flex-direction:column;gap:10px}
+.scroll{flex:1;overflow-y:auto;padding:12px;display:flex;flex-direction:column;gap:10px}
 .dot{width:7px;height:7px;border-radius:50%;background:var(--mu);transition:background .3s}
 .dot.on{background:var(--a);box-shadow:0 0 8px var(--a)}
 .dot.err{background:var(--e)}
 #toasts{position:fixed;top:20px;left:50%;transform:translateX(-50%);z-index:999;display:flex;flex-direction:column;gap:6px;align-items:center;pointer-events:none}
-.toast{background:var(--sf);border:1px solid var(--bd);border-radius:10px;padding:8px 16px;font-size:12px;white-space:nowrap;pointer-events:all;animation:fadeIn .2s ease}
+.toast{background:var(--sf);border:1px solid var(--bd);border-radius:10px;padding:8px 16px;font-size:12px;pointer-events:all;animation:fadeIn .2s}
 .toast.ok{border-color:rgba(0,255,157,.3);color:var(--a)}
 .toast.err{border-color:rgba(255,77,109,.3);color:var(--e)}
-@keyframes fadeIn{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:translateY(0)}}
-
-/* ── Settings screen ── */
-.my-id{
-  font-size:10px;color:var(--mu);background:var(--bg);border:1px solid var(--bd);
-  border-radius:8px;padding:8px 10px;cursor:pointer;overflow:hidden;
-  text-overflow:ellipsis;white-space:nowrap;letter-spacing:.5px;
-}
+@keyframes fadeIn{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:none}}
+.my-id{font-size:10px;color:var(--mu);background:var(--bg);border:1px solid var(--bd);border-radius:8px;padding:8px 10px;cursor:pointer;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .qr-wrap{display:flex;justify-content:center;padding:8px;background:#fff;border-radius:10px}
-
-/* ── Device list ── */
-.device-item{
-  display:flex;align-items:center;gap:12px;padding:14px 16px;
-  border-bottom:1px solid var(--bd);cursor:pointer;transition:background .15s;
-}
+.device-item{display:flex;align-items:center;gap:12px;padding:14px 16px;border-bottom:1px solid var(--bd);cursor:pointer;transition:background .15s}
 .device-item:active{background:var(--sf)}
 .device-avatar{font-size:28px;flex-shrink:0}
-.device-info{flex:1;min-width:0}
 .device-name{font-size:13px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .device-status{font-size:10px;color:var(--mu);display:flex;align-items:center;gap:5px;margin-top:3px}
-.status-dot{width:5px;height:5px;border-radius:50%;background:var(--mu)}
-.status-dot.on{background:var(--a)}
-.status-dot.rtc{background:#60a5fa}
-
-/* ── RTC badge ── */
-.rtc-badge{font-size:10px;font-weight:700;padding:3px 8px;border-radius:6px;border:1px solid var(--bd);color:var(--mu)}
+.sdot{width:5px;height:5px;border-radius:50%;background:var(--mu)}
+.sdot.on{background:var(--a)}
+.sdot.rtc{background:#60a5fa}
+.rtc-badge{font-size:10px;font-weight:700;padding:3px 8px;border-radius:6px;border:1px solid var(--bd);color:var(--mu);flex-shrink:0}
 .rtc-badge.open{border-color:rgba(96,165,250,.4);color:#60a5fa}
 .rtc-badge.connecting{border-color:rgba(229,192,123,.4);color:var(--w)}
-
-/* ── Screen panel ── */
-#screen-panel{display:flex;flex-direction:column;flex:1;min-height:0;overflow:hidden}
-#screen-img-wrap{
-  flex:1;min-height:0;background:#000;display:flex;
-  align-items:center;justify-content:center;position:relative;overflow:hidden;
-}
-#screen-img{max-width:100%;max-height:100%;object-fit:contain;touch-action:none;cursor:crosshair}
-#screen-tap-flash{
-  position:absolute;border-radius:50%;background:rgba(0,255,157,.4);
-  width:28px;height:28px;pointer-events:none;display:none;
-  transform:translate(-50%,-50%);transition:opacity .3s;
-}
-#screen-toolbar{
-  display:flex;align-items:center;gap:6px;padding:6px 10px;
-  background:var(--sf);border-bottom:1px solid var(--bd);flex-shrink:0;
-}
-#screen-keys{
-  display:flex;gap:4px;padding:4px 10px;
-  background:var(--sf);border-bottom:1px solid var(--bd);flex-shrink:0;
-}
-#screen-text-row{
-  display:flex;gap:6px;padding:6px 10px;
-  background:var(--sf);border-top:1px solid var(--bd);flex-shrink:0;
-}
-
-/* ── Log ── */
-#r-log{
-  flex:1;overflow-y:auto;padding:8px 10px;font-size:11px;
-  line-height:1.8;font-family:'JetBrains Mono',monospace;
-}
-.l-ok{color:var(--a)}.l-err{color:var(--e)}.l-in{color:#60a5fa}
-
-/* ── Agent terminal ── */
-#agent-ls{
-  background:var(--bg);border:1px solid var(--bd);border-radius:8px;
-  overflow:hidden;max-height:200px;overflow-y:auto;
-}
-.ls-item{
-  display:flex;align-items:center;gap:8px;padding:7px 10px;
-  border-bottom:1px solid rgba(44,44,66,.4);cursor:pointer;font-size:12px;
-}
+/* Screen */
+#scr-panel{display:flex;flex-direction:column;flex:1;min-height:0}
+#scr-toolbar{display:flex;align-items:center;gap:6px;padding:6px 10px;background:var(--sf);border-bottom:1px solid var(--bd);flex-shrink:0}
+#scr-keys{display:flex;gap:4px;padding:4px 10px;background:var(--sf);border-bottom:1px solid var(--bd);flex-shrink:0}
+#scr-wrap{flex:1;min-height:0;background:#000;display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden}
+#scr-img{max-width:100%;max-height:100%;object-fit:contain;display:none;touch-action:none;cursor:crosshair}
+#scr-hint{color:var(--mu);font-size:12px;text-align:center;padding:32px}
+#scr-tap{position:absolute;border-radius:50%;background:rgba(0,255,157,.4);width:28px;height:28px;pointer-events:none;display:none;transform:translate(-50%,-50%);transition:opacity .3s}
+#scr-text-row{display:flex;gap:6px;padding:6px 10px;background:var(--sf);border-top:1px solid var(--bd);flex-shrink:0}
+/* Agent */
+#agent-ls{background:var(--bg);border:1px solid var(--bd);border-radius:8px;overflow:hidden;max-height:200px;overflow-y:auto}
+.ls-item{display:flex;align-items:center;gap:8px;padding:7px 10px;border-bottom:1px solid rgba(44,44,66,.4);cursor:pointer;font-size:12px}
 .ls-item:active{background:var(--sf)}
-#agent-output{
-  display:none;background:var(--bg);border:1px solid var(--bd);border-radius:8px;
-  padding:8px 10px;font-size:10px;line-height:1.7;max-height:150px;
-  overflow-y:auto;white-space:pre-wrap;word-break:break-all;
-}
-
-/* ── Modal ── */
-.modal-bg{
-  position:fixed;inset:0;z-index:200;background:rgba(0,0,0,.8);
-  display:none;flex-direction:column;justify-content:flex-end;
-  backdrop-filter:blur(4px);
-}
-.modal-bg.on{display:flex}
-.modal-sheet{
-  background:var(--sf);border-radius:20px 20px 0 0;
-  border-top:1px solid var(--bd);padding:20px;
-  padding-bottom:calc(20px + env(safe-area-inset-bottom,0px));
-  display:flex;flex-direction:column;gap:12px;
-}
+#agent-out{display:none;background:var(--bg);border:1px solid var(--bd);border-radius:8px;padding:8px 10px;font-size:10px;line-height:1.7;max-height:150px;overflow-y:auto;white-space:pre-wrap;word-break:break-all}
+/* Log */
+#r-log{flex:1;overflow-y:auto;padding:8px 10px;font-size:11px;line-height:1.8;font-family:'JetBrains Mono',monospace}
+.l-ok{color:var(--a)}.l-err{color:var(--e)}.l-in{color:#60a5fa}
+/* Modal */
+.modal{position:fixed;inset:0;z-index:200;background:rgba(0,0,0,.8);display:none;flex-direction:column;justify-content:flex-end;backdrop-filter:blur(4px)}
+.modal.on{display:flex}
+.modal-sheet{background:var(--sf);border-radius:20px 20px 0 0;border-top:1px solid var(--bd);padding:20px;padding-bottom:calc(20px + env(safe-area-inset-bottom,0px));display:flex;flex-direction:column;gap:12px}
 .modal-title{font-size:14px;font-weight:700}
-
-/* ── Animations ── */
-@keyframes slideInR{from{transform:translateX(100%)}to{transform:translateX(0)}}
-@keyframes slideOutR{from{transform:translateX(0)}to{transform:translateX(100%)}}
+@keyframes slideInR{from{transform:translateX(100%)}to{transform:none}}
+@keyframes slideOutR{from{transform:none}to{transform:translateX(100%)}}
 </style>
 </head>
 <body>
 <div id="app">
-
-  <!-- Topbar -->
   <div id="topbar">
-    <button id="btn-back" onclick="closeDevice()" style="display:none;background:none;border:none;color:var(--mu);font-size:20px;cursor:pointer;padding:0;line-height:1">‹</button>
+    <button id="btn-back" onclick="closeDevice()" style="display:none;background:none;border:none;color:var(--mu);font-size:22px;cursor:pointer;padding:0;line-height:1">‹</button>
     <div id="topbar-title">TOVSA RC</div>
     <div class="dot" id="conn-dot"></div>
     <span id="my-id-badge" style="display:none;font-size:9px;color:var(--mu);max-width:100px;overflow:hidden;text-overflow:ellipsis;cursor:pointer" onclick="copyMyId()"></span>
   </div>
 
-  <!-- Screens -->
   <div id="screens">
-
     <!-- Settings -->
     <div class="scr on" id="s-settings">
-      <div class="section-scroll">
+      <div class="scroll">
         <div class="card">
           <div class="card-title">Подключение</div>
           <select id="srv-select" onchange="onSrvChange()">
@@ -230,22 +121,19 @@ textarea{resize:none;line-height:1.5}
 
     <!-- Agent -->
     <div class="scr" id="s-agent">
-      <div class="section-scroll">
-        <div class="card" id="agent-card">
+      <div class="scroll">
+        <div class="card">
           <div class="card-title" style="display:flex;justify-content:space-between">
             <span>Агент</span>
             <span id="agent-status" style="color:var(--mu)">не подключён</span>
           </div>
           <div id="agent-install" style="font-size:11px;color:var(--mu);line-height:1.9">
-            Запусти на устройстве:<br>
-            <code style="color:var(--a);cursor:pointer;user-select:all" onclick="copyText(this.textContent)">python3 -c "$(curl -fsSL https://tovsa7.github.io/tovsa-rc/bootstrap.py)"</code>
-            <br><span style="opacity:.6">Termux:</span><br>
+            Termux:<br>
             <code style="color:var(--a);cursor:pointer;user-select:all" onclick="copyText(this.textContent)">pkg install python curl python-cryptography && python3 -c "$(curl -fsSL https://tovsa7.github.io/tovsa-rc/bootstrap.py)"</code>
-          <br><span style="opacity:.5;font-size:10px">⚠ Первый раз: открой <code style="color:var(--a)" onclick="copyText('https://localhost:7071')">https://localhost:7071</code> в браузере → «Дополнительно» → «Всё равно перейти»</span>
           </div>
           <div class="row">
             <input id="agent-url" value="https://localhost:7071" style="flex:1;font-size:11px">
-            <button class="btn sm" id="btn-agent-connect" onclick="agentConnect()">Подключить</button>
+            <button class="btn sm" id="btn-agent" onclick="agentConnect()">Подключить</button>
           </div>
           <div id="agent-info" style="display:none;font-size:11px;color:var(--mu);line-height:1.8"></div>
           <div id="agent-term" style="display:none;flex-direction:column;gap:8px">
@@ -255,7 +143,7 @@ textarea{resize:none;line-height:1.5}
               <input id="agent-cmd" placeholder="команда..." style="flex:1;font-size:11px" onkeydown="if(event.key==='Enter')agentRun()">
               <button class="btn sm" onclick="agentRun()">▶</button>
             </div>
-            <div id="agent-output"></div>
+            <div id="agent-out"></div>
           </div>
         </div>
       </div>
@@ -274,84 +162,75 @@ textarea{resize:none;line-height:1.5}
       <div style="display:flex;align-items:center;padding:8px 12px;background:var(--sf);border-bottom:1px solid var(--bd);flex-shrink:0">
         <span style="flex:1;font-size:10px;font-weight:700;color:var(--mu);letter-spacing:1px">ЛОГ</span>
         <button onclick="copyLog()" style="background:none;border:none;font-size:11px;color:var(--mu);cursor:pointer;padding:4px 8px;font-family:inherit">📋</button>
-        <button onclick="clearLog()" style="background:none;border:none;font-size:11px;color:var(--mu);cursor:pointer;padding:4px 8px;font-family:inherit">🗑</button>
+        <button onclick="$('r-log').innerHTML=''" style="background:none;border:none;font-size:11px;color:var(--mu);cursor:pointer;padding:4px 8px;font-family:inherit">🗑</button>
       </div>
-      <div id="r-log"><span style="opacity:.4">пусто</span></div>
+      <div id="r-log"></div>
     </div>
+  </div>
 
-  </div><!-- /screens -->
-
-  <!-- Tabbar -->
   <div id="tabbar">
     <div id="tab-pill"></div>
     <button class="tab act" id="tab-settings" onclick="goTab('settings')"><div class="ti">⚙️</div>НАСТРОЙКИ</button>
-    <button class="tab" id="tab-agent"    onclick="goTab('agent')"><div class="ti">⚡</div>АГЕНТ</button>
-    <button class="tab" id="tab-devices"  onclick="goTab('devices')">
-      <div style="position:relative;display:inline-block">
-        <div class="ti">📱</div>
-        <span class="badge" id="devices-badge" style="display:none"></span>
-      </div>
+    <button class="tab" id="tab-agent"   onclick="goTab('agent')"><div class="ti">⚡</div>АГЕНТ</button>
+    <button class="tab" id="tab-devices" onclick="goTab('devices')">
+      <div style="position:relative;display:inline-block"><div class="ti">📱</div><span class="badge" id="devices-badge" style="display:none"></span></div>
       УСТРОЙСТВА
     </button>
     <button class="tab" id="tab-log" onclick="goTab('log')"><div class="ti">📋</div>ЛОГ</button>
   </div>
+</div>
 
-</div><!-- /app -->
-
-<!-- Device screen (overlay) -->
+<!-- Device screen overlay -->
 <div id="s-device">
   <div class="dev-header">
     <button onclick="closeDevice()" style="background:none;border:none;color:var(--mu);font-size:22px;cursor:pointer;padding:0;line-height:1;flex-shrink:0">‹</button>
-    <div class="dev-header-info">
+    <div style="flex:1;min-width:0">
       <div class="dev-name" id="dev-name">—</div>
-      <div class="dev-sub" id="dev-sub">не подключено</div>
     </div>
     <span class="rtc-badge" id="dev-rtc-badge">нет RTC</span>
     <button class="btn sm" id="dev-rtc-btn" onclick="devStartRtc()">🔗 RTC</button>
   </div>
-  <div id="screen-panel">
-    <div id="screen-toolbar">
-      <span id="screen-fps" style="font-size:10px;color:var(--mu);min-width:42px">— fps</span>
-      <span id="screen-res" style="font-size:10px;color:var(--mu);flex:1"></span>
-      <button class="btn sm ghost" onclick="screenSetQ(40)">Lo</button>
-      <button class="btn sm ghost" onclick="screenSetQ(65)">Mid</button>
-      <button class="btn sm ghost" onclick="screenSetQ(90)">Hi</button>
-      <button class="btn sm" id="screen-btn" onclick="screenToggle()">▶ Старт</button>
+  <div id="scr-panel">
+    <div id="scr-toolbar">
+      <span id="scr-fps" style="font-size:10px;color:var(--mu);min-width:42px">— fps</span>
+      <span id="scr-res" style="font-size:10px;color:var(--mu);flex:1"></span>
+      <button class="btn sm ghost" onclick="scrSetQ(40)">Lo</button>
+      <button class="btn sm ghost" onclick="scrSetQ(65)">Mid</button>
+      <button class="btn sm ghost" onclick="scrSetQ(90)">Hi</button>
+      <button class="btn sm" id="scr-btn" onclick="scrToggle()">▶ Старт</button>
     </div>
-    <div id="screen-keys">
-      <button class="btn sm ghost" style="flex:1" onclick="screenKey(3)">⌂</button>
-      <button class="btn sm ghost" style="flex:1" onclick="screenKey(4)">←</button>
-      <button class="btn sm ghost" style="flex:1" onclick="screenKey(187)">⧉</button>
-      <button class="btn sm ghost" style="flex:1" onclick="screenKey(24)">🔊</button>
-      <button class="btn sm ghost" style="flex:1" onclick="screenKey(25)">🔉</button>
-      <button class="btn sm ghost" style="flex:1" onclick="screenKey(26)">⏻</button>
+    <div id="scr-keys">
+      <button class="btn sm ghost" style="flex:1" onclick="scrKey(3)">⌂</button>
+      <button class="btn sm ghost" style="flex:1" onclick="scrKey(4)">←</button>
+      <button class="btn sm ghost" style="flex:1" onclick="scrKey(187)">⧉</button>
+      <button class="btn sm ghost" style="flex:1" onclick="scrKey(24)">🔊</button>
+      <button class="btn sm ghost" style="flex:1" onclick="scrKey(25)">🔉</button>
+      <button class="btn sm ghost" style="flex:1" onclick="scrKey(26)">⏻</button>
     </div>
-    <div id="screen-img-wrap">
-      <img id="screen-img" draggable="false"
-           style="max-width:100%;max-height:100%;object-fit:contain;display:none;touch-action:none;cursor:crosshair"
+    <div id="scr-wrap">
+      <img id="scr-img" draggable="false"
            onpointerdown="scrPtrDown(event)"
-           onpointerup="scrPtrUp(event)"
-           onpointermove="scrPtrMove(event)">
-      <div id="screen-placeholder" style="color:var(--mu);font-size:12px;text-align:center;padding:32px">Нажми ▶ Старт</div>
-      <div id="screen-tap-flash"></div>
+           onpointerup="scrPtrUp(event)">
+      <div id="scr-hint">Нажми ▶ Старт</div>
+      <div id="scr-tap"></div>
     </div>
-    <div id="screen-text-row">
-      <input id="screen-text" placeholder="Текст для ввода..." style="flex:1;font-size:12px"
-             onkeydown="if(event.key==='Enter'){screenSendText();event.preventDefault()}">
-      <button class="btn sm" onclick="screenSendText()">⌨</button>
+    <div id="scr-text-row">
+      <input id="scr-text" placeholder="Текст для ввода..." style="flex:1;font-size:12px"
+             onkeydown="if(event.key==='Enter'){scrSendText();event.preventDefault()}">
+      <button class="btn sm" onclick="scrSendText()">⌨</button>
     </div>
   </div>
 </div>
 
 <!-- Add device modal -->
-<div class="modal-bg" id="add-modal" onclick="if(event.target===this)closeAddModal()">
+<div class="modal" id="add-modal" onclick="if(event.target===this)closeAddModal()">
   <div class="modal-sheet">
     <div style="display:flex;align-items:center">
       <div class="modal-title" style="flex:1">Добавить устройство</div>
-      <button onclick="closeAddModal()" style="background:none;border:none;color:var(--mu);font-size:22px;cursor:pointer;padding:0;line-height:1">×</button>
+      <button onclick="closeAddModal()" style="background:none;border:none;color:var(--mu);font-size:22px;cursor:pointer;padding:0">×</button>
     </div>
     <div style="font-size:11px;color:var(--mu);text-align:center">Покажи QR второму устройству</div>
-    <div class="qr-wrap" id="add-qr-wrap"></div>
+    <div class="qr-wrap" id="add-qr"></div>
     <div class="my-id" id="add-my-id" onclick="copyMyId()">—</div>
     <div style="font-size:11px;color:var(--mu);text-align:center">или введи ID вручную:</div>
     <input id="add-name" placeholder="Имя устройства">
@@ -372,9 +251,9 @@ textarea{resize:none;line-height:1.5}
 // STATE
 // ════════════════════════════════════════════
 let ws = null, myId = '', isOpen = false;
-let myPrivKey = null, myPubRaw = null; // Ed25519
-const peers = {};   // id → {id,name,emoji,online}
-const rtcs  = {};   // id → {pc,dc,state,aesKey,pending:[]}
+let myPrivKey = null, myPubRaw = null;
+const peers = {};
+const rtcs  = {};
 let currentDevice = null;
 
 // Agent
@@ -385,7 +264,6 @@ let _agentCwd = '';
 let _scrRunning = false, _scrQ = 65;
 let _scrW = 1080, _scrH = 1920;
 let _scrPtrDown = false, _scrX0 = 0, _scrY0 = 0, _scrT0 = 0;
-let _scrDcRunning = false, _scrDcTo = null, _scrDcTimer = null;
 let _scrFpsCount = 0, _scrFpsTs = 0;
 
 // ════════════════════════════════════════════
@@ -402,9 +280,7 @@ function toast(msg, type='', dur=2800){
 }
 
 function rlog(msg, cls=''){
-  const el=$('r-log');
-  if(!el) return;
-  if(el.children.length===1&&el.children[0].tagName==='SPAN') el.innerHTML='';
+  const el=$('r-log'); if(!el) return;
   const d=document.createElement('div');
   d.className=cls?'l-'+cls:'';
   d.textContent='['+tsNow()+'] '+msg;
@@ -412,13 +288,15 @@ function rlog(msg, cls=''){
   el.scrollTop=el.scrollHeight;
 }
 
-function alog(msg){ rlog(msg); }
-
 function tsNow(){ return new Date().toLocaleTimeString('ru',{hour:'2-digit',minute:'2-digit'}); }
 function esc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 function fmtSz(n){ return n<1024?n+'B':n<1048576?(n/1024).toFixed(1)+'KB':(n/1048576).toFixed(1)+'MB'; }
 function copyText(t){ navigator.clipboard.writeText(t).then(()=>toast('Скопировано','ok')).catch(()=>{}); }
 function copyMyId(){ copyText(myId); }
+function copyLog(){
+  const lines=Array.from($('r-log').children).map(c=>c.textContent).join('\n');
+  copyText(lines);
+}
 
 function goTab(name){
   ['settings','agent','devices','log'].forEach(t=>{
@@ -428,24 +306,16 @@ function goTab(name){
   movePill('tab-'+name);
 }
 
-function movePill(tabId){
-  const pill=$('tab-pill'), bar=$('tabbar'), tab=$(tabId);
+function movePill(id){
+  const pill=$('tab-pill'), bar=$('tabbar'), tab=$(id);
   if(!pill||!bar||!tab) return;
   const br=bar.getBoundingClientRect(), tr=tab.getBoundingClientRect();
   pill.style.left=(tr.left-br.left)+'px';
   pill.style.width=tr.width+'px';
 }
 
-function copyLog(){
-  const lines=Array.from($('r-log').children).map(c=>c.textContent).join('\n');
-  copyText(lines);
-}
-function clearLog(){
-  $('r-log').innerHTML='<span style="opacity:.4">пусто</span>';
-}
-
 // ════════════════════════════════════════════
-// IDENTITY — Ed25519
+// IDENTITY
 // ════════════════════════════════════════════
 async function loadOrGenKey(){
   try{
@@ -466,8 +336,6 @@ async function loadOrGenKey(){
   }
   const h=await crypto.subtle.digest('SHA-256',myPubRaw);
   myId='tvp-'+Array.from(new Uint8Array(h)).map(b=>b.toString(16).padStart(2,'0')).join('').slice(0,48);
-  localStorage.setItem('tvrc_my_id',myId);
-  $('my-id-text').textContent=myId;
   $('my-id-badge').textContent=myId;
 }
 
@@ -479,7 +347,7 @@ async function signAuth(nonce){
 
 async function resetKey(){
   if(!confirm('Удалить ключ? ID изменится.')) return;
-  ['tvrc_key','tvrc_pub','tvrc_my_id'].forEach(k=>localStorage.removeItem(k));
+  ['tvrc_key','tvrc_pub'].forEach(k=>localStorage.removeItem(k));
   myPrivKey=null; myPubRaw=null;
   await loadOrGenKey();
   generateQr();
@@ -490,15 +358,24 @@ async function resetKey(){
 // ════════════════════════════════════════════
 // E2E — ECDH + AES-GCM
 // ════════════════════════════════════════════
-async function aesGenKey(){
-  return crypto.subtle.generateKey({name:'AES-GCM',length:256},false,['encrypt','decrypt']);
+async function ecdhGenKP(){
+  const kp=await crypto.subtle.generateKey({name:'X25519'},true,['deriveBits']);
+  const pub=new Uint8Array(await crypto.subtle.exportKey('raw',kp.publicKey));
+  const jwk=await crypto.subtle.exportKey('jwk',kp.privateKey);
+  return {pub,jwk};
 }
 
-async function aesEncrypt(key, plaintext){
+async function ecdhDerive(jwk, theirPub){
+  const priv=await crypto.subtle.importKey('jwk',jwk,{name:'X25519'},false,['deriveBits']);
+  const pub=await crypto.subtle.importKey('raw',theirPub,{name:'X25519'},false,[]);
+  const bits=await crypto.subtle.deriveBits({name:'X25519',public:pub},priv,256);
+  return crypto.subtle.importKey('raw',bits,'AES-GCM',false,['encrypt','decrypt']);
+}
+
+async function aesEncrypt(key, pt){
   const iv=crypto.getRandomValues(new Uint8Array(12));
-  const ct=await crypto.subtle.encrypt({name:'AES-GCM',iv},key,new TextEncoder().encode(plaintext));
-  const buf=new Uint8Array(12+ct.byteLength);
-  buf.set(iv); buf.set(new Uint8Array(ct),12);
+  const ct=await crypto.subtle.encrypt({name:'AES-GCM',iv},key,new TextEncoder().encode(pt));
+  const buf=new Uint8Array(12+ct.byteLength); buf.set(iv); buf.set(new Uint8Array(ct),12);
   return btoa(String.fromCharCode(...buf));
 }
 
@@ -508,87 +385,51 @@ async function aesDecrypt(key, b64){
   return new TextDecoder().decode(pt);
 }
 
-// ECDH handshake: initiator sends ecdh_hello with X25519 pubkey
-// responder replies ecdh_ack with its pubkey
-// both derive shared AES key
-async function ecdhGenKP(){
-  const kp=await crypto.subtle.generateKey({name:'X25519'},true,['deriveBits']);
-  const pub=new Uint8Array(await crypto.subtle.exportKey('raw',kp.publicKey));
-  const jwk=await crypto.subtle.exportKey('jwk',kp.privateKey);
-  return {pub,jwk};
-}
-
-async function ecdhDerive(privJwk, theirPubBytes){
-  const priv=await crypto.subtle.importKey('jwk',privJwk,{name:'X25519'},false,['deriveBits']);
-  const pub=await crypto.subtle.importKey('raw',theirPubBytes,{name:'X25519'},false,[]);
-  const bits=await crypto.subtle.deriveBits({name:'X25519',public:pub},priv,256);
-  return crypto.subtle.importKey('raw',bits,'AES-GCM',false,['encrypt','decrypt']);
-}
-
-function b64(buf){ let s=''; for(const b of buf)s+=String.fromCharCode(b); return btoa(s); }
-function unb64(s){ return Uint8Array.from(atob(s),c=>c.charCodeAt(0)); }
+const b64e = buf => { let s=''; for(const b of buf) s+=String.fromCharCode(b); return btoa(s); };
+const b64d = s => Uint8Array.from(atob(s),c=>c.charCodeAt(0));
 
 // ════════════════════════════════════════════
 // WEBSOCKET
 // ════════════════════════════════════════════
-function setDot(cls){
-  const d=$('conn-dot');
-  d.className='dot'+(cls?' '+cls:'');
-}
-
-function onSrvChange(){
-  $('srv-custom').style.display=$('srv-select').value==='custom'?'':'none';
-}
+function setDot(cls){ const d=$('conn-dot'); d.className='dot'+(cls?' '+cls:''); }
+function onSrvChange(){ $('srv-custom').style.display=$('srv-select').value==='custom'?'':'none'; }
 
 function connectToServer(){
   const url=$('srv-select').value==='custom'?$('srv-custom').value.trim():$('srv-select').value;
   if(!url){toast('Введи URL','err');return;}
   localStorage.setItem('tvrc_srv',url);
-  $('btn-connect').disabled=true;
-  $('btn-connect').textContent='Подключаюсь...';
+  $('btn-connect').disabled=true; $('btn-connect').textContent='Подключаюсь...';
   setDot('');
   if(ws){try{ws.close(1000,'reconnect');}catch(_){} ws=null;}
   ws=new WebSocket(url);
   ws.onopen=()=>{setDot('act'); window._wsRA=0;};
   ws.onclose=e=>{
     setDot(''); isOpen=false;
-    $('btn-connect').disabled=false;
-    $('btn-connect').textContent='Подключиться';
+    $('btn-connect').disabled=false; $('btn-connect').textContent='Подключиться';
     $('btn-add').disabled=true;
-    rlog('WS закрыт: '+e.code+(e.reason?' '+e.reason:''), 'err');
+    rlog('WS закрыт: '+e.code,'err');
     if(e.code===1000||e.code===1001||e.code>=4000) return;
     window._wsRA=(window._wsRA||0)+1;
     const d=Math.min(1000*Math.pow(1.5,window._wsRA-1),30000);
-    rlog('Реконнект через '+Math.round(d/1000)+'с...');
-    setTimeout(connectToServer, d);
+    setTimeout(connectToServer,d);
   };
-  ws.onerror=()=>{
-    setDot('err');
-    $('btn-connect').disabled=false;
-    $('btn-connect').textContent='Подключиться';
-    toast('Ошибка подключения','err');
-  };
-  ws.onmessage=e=>{
-    let m; try{m=JSON.parse(e.data);}catch{return;}
-    handleServer(m);
-  };
+  ws.onerror=()=>{ setDot('err'); $('btn-connect').disabled=false; $('btn-connect').textContent='Подключиться'; toast('Ошибка','err'); };
+  ws.onmessage=e=>{ let m; try{m=JSON.parse(e.data);}catch{return;} handleServer(m); };
 }
 
 function wsSend(msg){
   if(!ws||ws.readyState!==WebSocket.OPEN) return false;
-  ws.send(JSON.stringify(msg));
-  return true;
+  ws.send(JSON.stringify(msg)); return true;
 }
 
 function handleServer(m){
   switch(m.type){
     case 'HELLO_REQ': wsSend({type:'HELLO',id:myId,v:5}); break;
-    case 'CHALLENGE': signAuth(m.nonce).then(({pub,sig})=>wsSend({type:'AUTH',pub,sig})).catch(()=>{}); break;
+    case 'CHALLENGE': signAuth(m.nonce).then(({pub,sig})=>wsSend({type:'AUTH',pub,sig})); break;
     case 'OPEN':
       isOpen=true; setDot('on');
       $('my-id-badge').style.display='inline-block';
-      $('btn-connect').disabled=false;
-      $('btn-connect').textContent='Переподключить';
+      $('btn-connect').disabled=false; $('btn-connect').textContent='Переподключить';
       $('btn-add').disabled=false;
       rlog('Подключено ✓','ok'); toast('Подключено!','ok');
       schedulePresence();
@@ -597,18 +438,11 @@ function handleServer(m){
       rlog('ERR '+m.code+(m.msg?' '+m.msg:''),'err');
       if(m.code===4001) toast('ID занят — другая вкладка?','err',5000);
       else toast('Ошибка: '+m.code,'err');
-      $('btn-connect').disabled=false;
-      $('btn-connect').textContent='Подключиться';
+      $('btn-connect').disabled=false; $('btn-connect').textContent='Подключиться';
       break;
-    case 'RELAY':
-      handleRelay(m.from, m.kind, m.data);
-      break;
-    case 'RELAY-ACK':
-      if(!m.delivered) toast('Устройство недоступно','err');
-      break;
-    case 'PRESENCE-RESULT':
-      handlePresenceResult(m);
-      break;
+    case 'RELAY':         handleRelay(m.from,m.kind,m.data); break;
+    case 'RELAY-ACK':     if(!m.delivered) toast('Устройство недоступно','err'); break;
+    case 'PRESENCE-RESULT': handlePresenceResult(m); break;
     case 'PING': wsSend({type:'PONG'}); break;
   }
 }
@@ -617,24 +451,12 @@ function handleServer(m){
 // PRESENCE
 // ════════════════════════════════════════════
 let _presTimer=null;
-function schedulePresence(){
-  if(_presTimer) clearInterval(_presTimer);
-  doPresence();
-  _presTimer=setInterval(doPresence,15000);
-}
-function doPresence(){
-  const ids=Object.keys(peers);
-  if(!ids.length||!isOpen) return;
-  wsSend({type:'PRESENCE',reqId:'p'+Date.now(),ids});
-}
+function schedulePresence(){ if(_presTimer) clearInterval(_presTimer); doPresence(); _presTimer=setInterval(doPresence,15000); }
+function doPresence(){ const ids=Object.keys(peers); if(!ids.length||!isOpen) return; wsSend({type:'PRESENCE',reqId:'p'+Date.now(),ids}); }
 function handlePresenceResult(m){
   const online=Array.isArray(m.online)?m.online:[];
   let ch=false;
-  for(const id of Object.keys(peers)){
-    const was=peers[id].online;
-    peers[id].online=online.includes(id);
-    if(was!==peers[id].online) ch=true;
-  }
+  for(const id of Object.keys(peers)){ const was=peers[id].online; peers[id].online=online.includes(id); if(was!==peers[id].online) ch=true; }
   if(ch) renderDeviceList();
 }
 
@@ -649,11 +471,8 @@ function getRtc(id){
   rtcs[id]=entry;
 
   entry.pc.onicecandidate=e=>{
-    if(e.candidate){
-      // Only send srflx/relay candidates (no host — no local IP leak)
-      if(e.candidate.type==='host') return;
+    if(e.candidate&&e.candidate.type!=='host')
       wsSend({type:'RELAY',to:id,kind:'ice',data:e.candidate});
-    }
   };
 
   entry.pc.onconnectionstatechange=()=>{
@@ -667,51 +486,30 @@ function getRtc(id){
 
   entry.pc.oniceconnectionstatechange=()=>{
     if(entry.pc.iceConnectionState==='failed'){
-      rlog('ICE failed — возможно Symmetric NAT','err');
-      toast('P2P не удался (NAT). Попробуй Wi-Fi.','err',6000);
+      rlog('ICE failed — Symmetric NAT?','err');
+      toast('P2P не удался. Попробуй Wi-Fi.','err',6000);
     }
   };
 
-  entry.pc.ontrack=e=>{
-    rlog('ontrack: '+e.track.kind+' streams='+e.streams.length,'ok');
-    if(e.track.kind==='video' && currentDevice===id){
-      scrCtrlHandleTrack(e.track, e.streams);
-    }
-  };
-  entry.pc.ondatachannel=e=>{
-    entry._isInitiator=false;
-    setupDc(id, e.channel);
-  };
-
+  entry.pc.ondatachannel=e=>{ entry._isInitiator=false; setupDc(id,e.channel); };
   return entry;
 }
 
-function setupDc(id, dc){
-  const entry=rtcs[id];
-  if(!entry) return;
+function setupDc(id,dc){
+  const entry=rtcs[id]; if(!entry) return;
   entry.dc=dc;
   dc.onopen=async()=>{
-    entry.state='open';
-    renderDeviceList();
+    entry.state='open'; renderDeviceList();
     if(currentDevice===id) updateRtcBadge(id);
     rlog('DataChannel открыт ['+id.slice(0,14)+']','ok');
     toast('RTC подключён!','ok');
-    // ECDH handshake
     if(entry._isInitiator){
       entry._ecdhKP=await ecdhGenKP();
-      dcSendRaw(id,{_t:'ecdh_hello',pub:b64(entry._ecdhKP.pub)});
+      dcRaw(id,{_t:'ecdh_hello',pub:b64e(entry._ecdhKP.pub)});
     }
   };
-  dc.onclose=()=>{
-    entry.state='closed';
-    entry.aesKey=null;
-    if(currentDevice===id) updateRtcBadge(id);
-    renderDeviceList();
-  };
-  dc.onmessage=e=>{
-    let m; try{m=JSON.parse(e.data);}catch{return;}
-    handleDc(id,m);
-  };
+  dc.onclose=()=>{ entry.state='closed'; entry.aesKey=null; if(currentDevice===id) updateRtcBadge(id); renderDeviceList(); };
+  dc.onmessage=e=>{ let m; try{m=JSON.parse(e.data);}catch{return;} handleDc(id,m); };
 }
 
 async function createOffer(id){
@@ -725,14 +523,11 @@ async function createOffer(id){
     const offer=await entry.pc.createOffer();
     await entry.pc.setLocalDescription(offer);
     wsSend({type:'RELAY',to:id,kind:'offer',data:offer});
-  }catch(e){
-    rlog('createOffer error: '+e.message,'err');
-    toast('Ошибка RTC','err');
-  }
+  }catch(e){ rlog('createOffer: '+e.message,'err'); toast('Ошибка RTC','err'); }
 }
 
 async function handleRelay(from,kind,data){
-  if(!peers[from]){peers[from]={id:from,name:from,online:true,emoji:rndEmoji()};savePeers();renderDeviceList();}
+  if(!peers[from]) return; // ignore unknown peers
   const entry=getRtc(from);
   if(kind==='offer'){
     try{
@@ -742,14 +537,10 @@ async function handleRelay(from,kind,data){
       wsSend({type:'RELAY',to:from,kind:'answer',data:ans});
       for(const c of entry.pending) await entry.pc.addIceCandidate(c).catch(()=>{});
       entry.pending=[];
-      rlog('offer от '+from.slice(0,14),'ok');
-    }catch(e){rlog('answer error: '+e.message,'err');}
+    }catch(e){ rlog('answer: '+e.message,'err'); }
   } else if(kind==='answer'){
-    try{
-      await entry.pc.setRemoteDescription(data);
-      for(const c of entry.pending) await entry.pc.addIceCandidate(c).catch(()=>{});
-      entry.pending=[];
-    }catch(e){rlog('setRemote error: '+e.message,'err');}
+    try{ await entry.pc.setRemoteDescription(data); for(const c of entry.pending) await entry.pc.addIceCandidate(c).catch(()=>{}); entry.pending=[]; }
+    catch(e){ rlog('setRemote: '+e.message,'err'); }
   } else if(kind==='ice'){
     if(entry.pc.remoteDescription) await entry.pc.addIceCandidate(data).catch(()=>{});
     else entry.pending.push(data);
@@ -757,94 +548,79 @@ async function handleRelay(from,kind,data){
 }
 
 // ════════════════════════════════════════════
-// DATACHANNEL MESSAGING
+// DATACHANNEL
 // ════════════════════════════════════════════
-function dcSendRaw(id, msg){
+function dcRaw(id,msg){
   const e=rtcs[id||currentDevice];
   if(!e?.dc||e.dc.readyState!=='open') return false;
-  e.dc.send(JSON.stringify(msg));
-  return true;
+  e.dc.send(JSON.stringify(msg)); return true;
 }
 
-async function dcSend(id, msg){
+async function dcSend(id,msg){
   const e=rtcs[id||currentDevice];
   if(!e?.dc||e.dc.readyState!=='open'){toast('RTC не подключён','err');return false;}
-  if(e.aesKey){
-    const ct=await aesEncrypt(e.aesKey, JSON.stringify(msg));
-    e.dc.send(JSON.stringify({_e:ct}));
-  } else {
-    e.dc.send(JSON.stringify(msg));
-  }
+  if(e.aesKey){ e.dc.send(JSON.stringify({_e:await aesEncrypt(e.aesKey,JSON.stringify(msg))})); }
+  else { e.dc.send(JSON.stringify(msg)); }
   return true;
 }
 
-async function handleDc(from, msg){
+async function handleDc(from,msg){
   const entry=rtcs[from];
-
-  // ECDH handshake (unencrypted)
   if(msg._t==='ecdh_hello'){
     entry._ecdhKP=await ecdhGenKP();
-    const theirPub=unb64(msg.pub);
-    entry.aesKey=await ecdhDerive(entry._ecdhKP.jwk, theirPub);
-    dcSendRaw(from,{_t:'ecdh_ack',pub:b64(entry._ecdhKP.pub)});
+    entry.aesKey=await ecdhDerive(entry._ecdhKP.jwk,b64d(msg.pub));
+    dcRaw(from,{_t:'ecdh_ack',pub:b64e(entry._ecdhKP.pub)});
     rlog('E2E ключ установлен ['+from.slice(0,14)+']','ok');
+    if(currentDevice===from) updateRtcBadge(from);
     return;
   }
   if(msg._t==='ecdh_ack'){
-    const theirPub=unb64(msg.pub);
-    entry.aesKey=await ecdhDerive(entry._ecdhKP.jwk, theirPub);
+    entry.aesKey=await ecdhDerive(entry._ecdhKP.jwk,b64d(msg.pub));
     rlog('E2E ключ установлен ['+from.slice(0,14)+']','ok');
+    if(currentDevice===from) updateRtcBadge(from);
     return;
   }
-
-  // Decrypt if encrypted
   if(msg._e){
     if(!entry.aesKey) return;
-    try{
-      const pt=await aesDecrypt(entry.aesKey, msg._e);
-      msg=JSON.parse(pt);
-    }catch(e){rlog('Decrypt error: '+e.message,'err');return;}
+    try{ msg=JSON.parse(await aesDecrypt(entry.aesKey,msg._e)); }
+    catch(e){ rlog('Decrypt: '+e.message,'err'); return; }
   }
-
-  handleDcMsg(from, msg);
+  handleDcMsg(from,msg);
 }
 
-function handleDcMsg(from, msg){
+function handleDcMsg(from,msg){
   switch(msg.type){
-    // Screen mirror — host side
-    case 'screen_start': scrDcHostStart(from,msg); break;
-    case 'screen_stop':  scrDcHostStop(from); scrDcCtrlStop(); break;
-    case 'screen_frame': scrDcCtrlFrame(msg); break;
-    case 'screen_info':  _scrW=msg.w; _scrH=msg.h; $('screen-res').textContent=msg.w+'×'+msg.h; break;
-    case 'screen_input': scrDcHostInput(from,msg); break;
+    case 'screen_start':  scrHostStart(from,msg); break;
+    case 'screen_stop':   scrHostStop(from); scrCtrlStopped(); break;
+    case 'screen_input':  scrHostInput(from,msg); break;
+    case 'screen_frame':  scrCtrlFrame(msg); break;
+    case 'screen_info':   _scrW=msg.w; _scrH=msg.h; $('scr-res').textContent=msg.w+'×'+msg.h; break;
   }
 }
 
 // ════════════════════════════════════════════
-// DEVICE LIST
+// DEVICES
 // ════════════════════════════════════════════
 function renderDeviceList(){
   const list=$('device-list');
   const ids=Object.keys(peers);
   const onCnt=ids.filter(id=>peers[id].online||rtcs[id]?.state==='open').length;
   const badge=$('devices-badge');
-  badge.style.display=onCnt>0?'':'none';
-  badge.textContent=onCnt;
-
+  badge.style.display=onCnt>0?'':'none'; badge.textContent=onCnt;
   if(!ids.length){
-    list.innerHTML='<div style="padding:48px;text-align:center;font-size:12px;color:var(--mu);line-height:2"><div style="font-size:48px;opacity:.15;margin-bottom:12px">📱</div>Нет устройств.<br>Нажми «Добавить устройство».</div>';
+    list.innerHTML='<div style="padding:48px;text-align:center;font-size:12px;color:var(--mu);line-height:2"><div style="font-size:48px;opacity:.15;margin-bottom:12px">📱</div>Нет устройств.<br>Нажми «Добавить».</div>';
     return;
   }
   list.innerHTML=ids.map(id=>{
-    const p=peers[id], rtc=rtcs[id], rs=rtc?.state||'';
+    const p=peers[id],rs=rtcs[id]?.state||'';
     const online=p.online||rs==='open';
     const dc=rs==='open'?'rtc':online?'on':'';
-    const sub=rs==='open'?'🔗 RTC подключён':online?'● онлайн':'○ офлайн';
+    const sub=rs==='open'?'🔗 RTC':online?'● онлайн':'○ офлайн';
     return `<div class="device-item" onclick="openDevice('${id}')">
       <div class="device-avatar">${p.emoji||'💻'}</div>
-      <div class="device-info">
+      <div style="flex:1;min-width:0">
         <div class="device-name">${esc(p.name||id)}</div>
-        <div class="device-status"><div class="status-dot ${dc}"></div>${sub}</div>
+        <div class="device-status"><div class="sdot ${dc}"></div>${sub}</div>
       </div>
       <button onclick="event.stopPropagation();removePeer('${id}')" style="background:none;border:none;color:var(--mu);font-size:22px;cursor:pointer;padding:4px;flex-shrink:0">×</button>
     </div>`;
@@ -852,68 +628,43 @@ function renderDeviceList(){
 }
 
 function openDevice(id){
-  // Reset screen state from previous session
-  _scrRunning=false;
-  _scrDcRunning=false;
-  $('screen-btn').textContent='▶ Старт'; $('screen-btn').style.background='';
-  $('screen-fps').textContent='— fps';
-  const _si=$('screen-img'); if(_si){_si.style.display='none';_si.src='';}
-  if($('screen-placeholder')) $('screen-placeholder').style.display='';
   currentDevice=id;
-  const p=peers[id];
-  $('dev-name').textContent=p?.name||id.slice(0,16);
+  _scrRunning=false; $('scr-btn').textContent='▶ Старт'; $('scr-btn').style.background='';
+  $('scr-fps').textContent='— fps'; $('scr-img').style.display='none'; $('scr-hint').style.display='';
+  $('dev-name').textContent=peers[id]?.name||id.slice(0,16);
   $('s-device').style.animation='slideInR .25s cubic-bezier(.4,0,.2,1) both';
   $('s-device').classList.add('on');
-  $('btn-back').style.display='block';
-  $('topbar-title').textContent=p?.name||id.slice(0,16);
   updateRtcBadge(id);
 }
 
 function closeDevice(){
   if(!currentDevice) return;
+  if(_scrRunning) scrCtrlStop();
   $('s-device').style.animation='slideOutR .22s cubic-bezier(.4,0,.2,1) both';
-  setTimeout(()=>{
-    $('s-device').classList.remove('on');
-    $('s-device').style.animation='';
-  },220);
-  // Stop screen
-  if(_scrRunning){ scrDcStop(); }
-  _scrRunning=false;
-  $('screen-btn').textContent='▶ Старт'; $('screen-btn').style.background='';
-  $('screen-fps').textContent='— fps';
-  const _si=$('screen-img'); if(_si){_si.style.display='none';_si.src='';}
-  if($('screen-placeholder')) $('screen-placeholder').style.display='';
+  setTimeout(()=>{ $('s-device').classList.remove('on'); $('s-device').style.animation=''; },220);
   currentDevice=null;
-  $('btn-back').style.display='none';
-  $('topbar-title').textContent='TOVSA RC';
 }
 
 function devStartRtc(){
   if(!currentDevice) return;
-  if(!isOpen){toast('Нет соединения с сервером','err');return;}
+  if(!isOpen){toast('Нет соединения','err');return;}
   if(rtcs[currentDevice]?.state==='open'){toast('Уже подключено');return;}
   createOffer(currentDevice);
 }
 
 function updateRtcBadge(id){
-  const badge=$('dev-rtc-badge'), btn=$('dev-rtc-btn');
-  const s=rtcs[id]?.state||'';
-  const enc=!!rtcs[id]?.aesKey;
+  const badge=$('dev-rtc-badge'),btn=$('dev-rtc-btn');
+  const s=rtcs[id]?.state||'', enc=!!rtcs[id]?.aesKey;
   if(s==='open'){
-    badge.className='rtc-badge open';
-    badge.textContent=(enc?'🔒 ':'')+'RTC ●';
+    badge.className='rtc-badge open'; badge.textContent=(enc?'🔒 ':'')+'RTC ●';
     btn.textContent='✓ RTC'; btn.disabled=true;
   } else if(s==='connecting'){
-    badge.className='rtc-badge connecting';
-    badge.textContent='RTC...';
+    badge.className='rtc-badge connecting'; badge.textContent='RTC...';
     btn.textContent='⏳'; btn.disabled=true;
   } else {
-    badge.className='rtc-badge';
-    badge.textContent='нет RTC';
+    badge.className='rtc-badge'; badge.textContent='нет RTC';
     btn.textContent='🔗 RTC'; btn.disabled=false;
   }
-  const sub=$('dev-sub');
-  if(sub) sub.textContent=s==='open'?(enc?'E2E зашифровано':'RTC подключён'):s==='connecting'?'Подключение...':'не подключено';
 }
 
 function removePeer(id){
@@ -924,20 +675,20 @@ function removePeer(id){
 }
 
 function savePeers(){ localStorage.setItem('tvrc_peers',JSON.stringify(peers)); }
-function rndEmoji(){ return ['💻','📱','🖥️','🖱️','⌨️','📟','📺'][Math.floor(Math.random()*7)]; }
+const rndEmoji=()=>['💻','📱','🖥️','🖱️','⌨️','📟','📺'][Math.floor(Math.random()*7)];
 
 // ════════════════════════════════════════════
-// ADD DEVICE MODAL
+// ADD DEVICE
 // ════════════════════════════════════════════
 let _qrDone=false;
 function showAddModal(){
-  if(!isOpen){toast('Сначала подключись к серверу','err');return;}
+  if(!isOpen){toast('Сначала подключись','err');return;}
   $('add-modal').classList.add('on');
   if(!_qrDone) generateQr();
 }
 function closeAddModal(){ $('add-modal').classList.remove('on'); }
 function generateQr(){
-  const w=$('add-qr-wrap'); w.innerHTML='';
+  const w=$('add-qr'); w.innerHTML='';
   try{new QRCode(w,{text:myId,width:180,height:180,colorDark:'#000',colorLight:'#fff'});_qrDone=true;}
   catch(_){w.textContent=myId;}
   $('add-my-id').textContent=myId;
@@ -951,8 +702,7 @@ function doAddPeer(){
   savePeers(); renderDeviceList();
   $('add-id').value=''; $('add-name').value='';
   closeAddModal();
-  toast('Добавлено: '+(name||id),'ok');
-  doPresence();
+  toast('Добавлено','ok'); doPresence();
 }
 
 // ════════════════════════════════════════════
@@ -960,46 +710,35 @@ function doAddPeer(){
 // ════════════════════════════════════════════
 async function agentFetch(endpoint, body=null){
   const url=_agentUrl.replace(/\/+$/,'')+endpoint;
-  const opts=body
-    ?{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}
-    :{method:'GET'};
-  alog('→ '+url);
-  try{
-    const r=await fetch(url,opts);
-    alog('← '+r.status);
-    if(!r.ok) throw new Error('HTTP '+r.status);
-    return r.json();
-  }catch(e){
-    alog('✗ '+e.message);
-    throw e;
-  }
+  const opts=body?{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}:{method:'GET'};
+  const r=await fetch(url,opts);
+  if(!r.ok) throw new Error('HTTP '+r.status);
+  return r.json();
 }
 
 async function agentConnect(){
   const url=$('agent-url')?.value?.trim();
   if(url) _agentUrl=url;
-  const btn=$('btn-agent-connect'), st=$('agent-status');
+  const btn=$('btn-agent'), st=$('agent-status');
   btn.disabled=true; btn.textContent='...';
   try{
     const info=await agentFetch('/');
     _agentCwd=info.cwd||'';
     st.style.color='var(--a)'; st.textContent='● подключён';
     $('agent-install').style.display='none';
-    const inf=$('agent-info');
-    inf.style.display='';
-    inf.innerHTML='<b style="color:var(--tx)">Платформа:</b> '+esc(info.platform)
-      +' &nbsp; <b style="color:var(--tx)">Python:</b> '+esc(info.python||'?')
-      +'<br><b style="color:var(--tx)">Папка:</b> '+esc(info.cwd||'?')
-      +(info.termux?'<br><span style="color:var(--a)">📱 Termux</span>'
-        +(info.storage?'<span style="opacity:.6"> ✓ /sdcard</span>':'<span style="color:var(--w)"> ⚠ нет /sdcard</span>'):'');
+    $('agent-info').style.display='';
+    $('agent-info').innerHTML='<b style="color:var(--tx)">'+esc(info.platform)+'</b> Python '+esc(info.python||'?')
+      +'<br>'+esc(info.cwd||'?')
+      +(info.termux?'<br><span style="color:var(--a)">📱 Termux</span>'+(info.storage?' ✓ /sdcard':''):'');
     $('agent-term').style.display='flex';
     $('agent-cwd').textContent='📁 '+_agentCwd;
     await agentLs();
     toast('Агент подключён','ok');
+    rlog('Агент: '+info.platform+' '+info.cwd,'ok');
   }catch(e){
     st.style.color='var(--e)'; st.textContent='✗ недоступен';
-    $('agent-info').style.display='none';
-    $('agent-term').style.display='none';
+    $('agent-info').style.display='none'; $('agent-term').style.display='none';
+    rlog('Агент: '+e.message,'err');
     toast('Агент недоступен','err',4000);
   }
   btn.disabled=false; btn.textContent='Подключить';
@@ -1007,393 +746,222 @@ async function agentConnect(){
 
 async function agentLs(){
   try{
-    const data=await agentFetch('/ls');
-    _agentCwd=data.cwd;
-    const display=_agentCwd
-      .replace(/^\/data\/data\/com\.termux\/files\/home\/storage\/shared/,'/sdcard')
-      .replace(/^\/data\/data\/com\.termux\/files\/home/,'~');
+    const d=await agentFetch('/ls');
+    _agentCwd=d.cwd;
+    const display=_agentCwd.replace(/^\/data\/data\/com\.termux\/files\/home\/storage\/shared/,'/sdcard').replace(/^\/data\/data\/com\.termux\/files\/home/,'~');
     $('agent-cwd').textContent='📁 '+display;
     const ls=$('agent-ls');
-    if(!data.entries?.length){ls.innerHTML='<div class="ls-item" style="color:var(--mu);font-size:11px">Пусто</div>';return;}
-    ls.innerHTML=data.entries.map(e=>{
+    if(!d.entries?.length){ls.innerHTML='<div class="ls-item" style="color:var(--mu)">Пусто</div>';return;}
+    ls.innerHTML=d.entries.map(e=>{
       const icon=e.type==='dir'?'📁':fileEmoji(e.name);
       const sz=e.size!=null?'<span style="opacity:.5;margin-left:auto">'+fmtSz(e.size)+'</span>':'';
       const arg=JSON.stringify(e._path||e.name);
       const fn=e.type==='dir'?`agentCd(${arg})`:`agentOpen(${arg})`;
-      return `<div class="ls-item" onclick="${fn}">
-        <span style="font-size:16px">${icon}</span>
-        <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(e.name)}</span>
-        ${sz}
-      </div>`;
+      return `<div class="ls-item" onclick="${fn}"><span style="font-size:16px">${icon}</span><span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(e.name)}</span>${sz}</div>`;
     }).join('');
-  }catch(e){alog('ls error: '+e.message);}
+  }catch(e){ rlog('ls: '+e.message,'err'); }
 }
 
 async function agentCd(path){
-  try{
-    const d=await agentFetch('/cd',{path});
-    _agentCwd=d.cwd;
-    await agentLs();
-  }catch(e){toast('Ошибка: '+e.message,'err');}
+  try{ await agentFetch('/cd',{path}); await agentLs(); }
+  catch(e){ toast('Ошибка: '+e.message,'err'); }
 }
 
 async function agentRun(){
-  const inp=$('agent-cmd'), cmd=inp.value.trim();
-  if(!cmd) return;
+  const inp=$('agent-cmd'), cmd=inp.value.trim(); if(!cmd) return;
   inp.value='';
-  const out=$('agent-output');
+  const out=$('agent-out');
   out.style.display=''; out.textContent='⏳ '+cmd+'...'; out.style.color='var(--mu)';
   try{
     const d=await agentFetch('/run',{cmd,cwd:_agentCwd,timeout:30});
     const txt=(d.stdout||'')+(d.stderr?'\n[stderr] '+d.stderr:'');
-    out.textContent=txt||'(нет вывода)';
-    out.style.color=d.code===0?'var(--a)':'var(--e)';
+    out.textContent=txt||'(нет вывода)'; out.style.color=d.code===0?'var(--a)':'var(--e)';
     await agentLs();
-  }catch(e){
-    out.textContent='Ошибка: '+e.message;
-    out.style.color='var(--e)';
-  }
+  }catch(e){ out.textContent='Ошибка: '+e.message; out.style.color='var(--e)'; }
 }
 
 function agentOpen(name){
   const ext=name.split('.').pop().toLowerCase();
-  const txt=['txt','md','js','ts','py','sh','json','yaml','yml','html','css','xml','csv','log','conf','ini','toml','rs','go','rb','java','c','cpp','h'];
-  if(txt.includes(ext)){
+  const textExts=['txt','md','js','ts','py','sh','json','yaml','yml','html','css','log','conf','ini'];
+  if(textExts.includes(ext)){
     agentFetch('/read',{path:name}).then(d=>{
-      // Simple inline editor via prompt
-      const newText=prompt('Редактирование: '+name, d.content);
-      if(newText!==null) agentFetch('/write',{path:name,content:newText}).then(()=>toast('Сохранено','ok'));
+      const t=prompt('Редактирование: '+name,d.content);
+      if(t!==null) agentFetch('/write',{path:name,content:t}).then(()=>toast('Сохранено','ok'));
     }).catch(e=>toast('Ошибка: '+e.message,'err'));
   } else {
     agentFetch('/open',{path:name}).then(()=>toast('Открываю...','ok')).catch(e=>toast('Ошибка: '+e.message,'err'));
   }
 }
 
-function fileEmoji(n){
-  const e=(n.split('.').pop()||'').toLowerCase();
-  return {js:'📜',ts:'📜',py:'🐍',sh:'⚙️',html:'🌐',css:'🎨',json:'📋',
-          md:'📝',txt:'📝',png:'🖼',jpg:'🖼',jpeg:'🖼',gif:'🖼',webp:'🖼',
-          mp4:'🎬',mp3:'🎵',pdf:'📕',zip:'📦',gz:'📦',tar:'📦',
-          go:'🐹',rs:'🦀',rb:'💎'}[e]||'📄';
-}
+const fileEmoji=n=>({js:'📜',ts:'📜',py:'🐍',sh:'⚙️',html:'🌐',css:'🎨',json:'📋',md:'📝',txt:'📝',png:'🖼',jpg:'🖼',jpeg:'🖼',mp4:'🎬',mp3:'🎵',pdf:'📕',zip:'📦',gz:'📦'}[(n.split('.').pop()||'').toLowerCase()]||'📄');
 
 // ════════════════════════════════════════════
 // SCREEN MIRROR
 // ════════════════════════════════════════════
 function scrNorm(e){
-  const img=$('screen-img'), rect=img.getBoundingClientRect();
+  const img=$('scr-img'), rect=img.getBoundingClientRect();
   const ia=_scrW/_scrH, ba=rect.width/rect.height;
   let dW,dH,oX,oY;
   if(ia>ba){dW=rect.width;dH=rect.width/ia;oX=0;oY=(rect.height-dH)/2;}
   else{dH=rect.height;dW=rect.height*ia;oY=0;oX=(rect.width-dW)/2;}
-  return{
-    x:Math.max(0,Math.min(1,(e.clientX-rect.left-oX)/dW)),
-    y:Math.max(0,Math.min(1,(e.clientY-rect.top-oY)/dH))
-  };
+  return{x:Math.max(0,Math.min(1,(e.clientX-rect.left-oX)/dW)),y:Math.max(0,Math.min(1,(e.clientY-rect.top-oY)/dH))};
 }
 
 function scrFlash(e){
-  const fl=$('screen-tap-flash'), img=$('screen-video'), rect=img.getBoundingClientRect();
-  fl.style.left=(e.clientX-rect.left)+'px';
-  fl.style.top=(e.clientY-rect.top)+'px';
+  const fl=$('scr-tap'), img=$('scr-img'), rect=img.getBoundingClientRect();
+  fl.style.left=(e.clientX-rect.left)+'px'; fl.style.top=(e.clientY-rect.top)+'px';
   fl.style.display='block'; fl.style.opacity='1';
   setTimeout(()=>{fl.style.opacity='0';setTimeout(()=>fl.style.display='none',300);},150);
 }
 
 function scrPtrDown(e){
-  if(!_scrRunning) return;
-  e.preventDefault();
+  if(!_scrRunning) return; e.preventDefault();
   _scrPtrDown=true; _scrT0=Date.now();
   const c=scrNorm(e); _scrX0=c.x; _scrY0=c.y;
-  $('screen-video').setPointerCapture(e.pointerId);
+  $('scr-img').setPointerCapture(e.pointerId);
 }
 
 function scrPtrUp(e){
-  if(!_scrRunning||!_scrPtrDown) return;
-  e.preventDefault(); _scrPtrDown=false;
-  const c=scrNorm(e);
-  const dx=Math.abs(c.x-_scrX0), dy=Math.abs(c.y-_scrY0);
+  if(!_scrRunning||!_scrPtrDown) return; e.preventDefault(); _scrPtrDown=false;
+  const c=scrNorm(e), dx=Math.abs(c.x-_scrX0), dy=Math.abs(c.y-_scrY0);
   scrFlash(e);
-  const inp=dx<0.02&&dy<0.02
-    ?{type:'tap',x:c.x,y:c.y}
-    :{type:'swipe',x1:_scrX0,y1:_scrY0,x2:c.x,y2:c.y,ms:Math.max(100,Math.min(Date.now()-_scrT0,600))};
-  scrSendInput(inp);
-}
-
-function scrPtrMove(e){ /* visual only */ }
-
-function scrSendInput(inp){
-  if(currentDevice) dcSendRaw(currentDevice,{type:'screen_input',...inp});
+  const inp=dx<0.02&&dy<0.02?{type:'tap',x:c.x,y:c.y}:{type:'swipe',x1:_scrX0,y1:_scrY0,x2:c.x,y2:c.y,ms:Math.max(100,Math.min(Date.now()-_scrT0,600))};
+  if(currentDevice) dcRaw(currentDevice,{type:'screen_input',...inp});
   else agentFetch('/input',inp).catch(()=>{});
 }
 
-function screenKey(kc){ scrSendInput({type:'key',keycode:kc}); }
-function screenSendText(){
-  const el=$('screen-text'), t=el.value; if(!t) return; el.value='';
-  scrSendInput({type:'text',text:t});
+function scrKey(kc){
+  const inp={type:'key',keycode:kc};
+  if(currentDevice) dcRaw(currentDevice,{type:'screen_input',...inp});
+  else agentFetch('/input',inp).catch(()=>{});
 }
 
-function screenToggle(){
-  if(_scrRunning){
-    scrDcStop();
-  } else {
-    scrDcStart();
-  }
+function scrSendText(){
+  const el=$('scr-text'), t=el.value; if(!t) return; el.value='';
+  const inp={type:'text',text:t};
+  if(currentDevice) dcRaw(currentDevice,{type:'screen_input',...inp});
+  else agentFetch('/input',inp).catch(()=>{});
 }
 
-function screenSetQ(q){ _scrQ=q; }
+// ── Controller: request stream from host ──
+function scrToggle(){ _scrRunning ? scrCtrlStop() : scrCtrlStart(); }
+function scrSetQ(q){ _scrQ=q; if(_scrRunning){scrCtrlStop();setTimeout(scrCtrlStart,200);} }
 
-// ── Screen: getDisplayMedia + WebRTC video track ────
-let _scrStream = null;  // MediaStream from getDisplayMedia (host)
+function scrCtrlStart(){
+  if(!currentDevice) return;
+  dcRaw(currentDevice,{type:'screen_start',fps:8,quality:_scrQ});
+  _scrRunning=true; _scrFpsTs=performance.now(); _scrFpsCount=0;
+  $('scr-btn').textContent='⏹ Стоп'; $('scr-btn').style.background='var(--e)';
+  scrFpsLoop();
+}
 
-// FPS counter loop
+function scrCtrlStop(){
+  if(currentDevice) dcRaw(currentDevice,{type:'screen_stop'});
+  _scrRunning=false;
+  $('scr-img').style.display='none'; $('scr-hint').style.display='';
+  $('scr-btn').textContent='▶ Старт'; $('scr-btn').style.background='';
+  $('scr-fps').textContent='— fps';
+}
+
+function scrCtrlStopped(){
+  _scrRunning=false;
+  $('scr-img').style.display='none'; $('scr-hint').style.display='';
+  $('scr-btn').textContent='▶ Старт'; $('scr-btn').style.background='';
+  $('scr-fps').textContent='— fps';
+}
+
+function scrCtrlFrame(msg){
+  const img=$('scr-img'); if(!img) return;
+  img.style.display='block'; $('scr-hint').style.display='none';
+  img.src='data:'+msg.mime+';base64,'+msg.b64;
+  _scrFpsCount++;
+}
+
 function scrFpsLoop(){
   if(!_scrRunning) return;
   _scrFpsCount++;
   const now=performance.now();
   if(now-_scrFpsTs>=1000){
-    $('screen-fps').textContent=_scrFpsCount+' fps';
+    $('scr-fps').textContent=_scrFpsCount+' fps';
     _scrFpsCount=0; _scrFpsTs=now;
   }
   requestAnimationFrame(scrFpsLoop);
 }
 
-// ── HOST side ─────────────────────────────────────────
-async function scrHostStart(){
-  // Called on the device that will share its screen
-  rlog('mediaDevices: '+(typeof navigator.mediaDevices));
-  rlog('getDisplayMedia: '+(typeof navigator.mediaDevices?.getDisplayMedia));
-  rlog('getUserMedia: '+(typeof navigator.mediaDevices?.getUserMedia));
-  rlog('isSecure: '+window.isSecureContext+' proto: '+location.protocol);
-  try{
-    _scrStream = await navigator.mediaDevices.getDisplayMedia({
-      video:{frameRate:{ideal:30,max:30}, width:{ideal:1080}, height:{ideal:1920}},
-      audio:false
-    });
-  }catch(e){
-    rlog('getDisplayMedia err: '+e.message,'err');
-    if(e.message.includes('not a function')){
-      toast('getDisplayMedia не поддерживается — нужен HTTPS','err',5000);
-      rlog('Открой https://localhost:7071/app вместо http://','err');
-    } else {
-      toast('Отклонено: '+e.message,'err');
-    }
-    return;
-  }
-
-  // Add tracks to existing RTCPeerConnection and renegotiate
-  const entry = rtcs[_scrDcTo];
-  if(!entry?.pc){
-    rlog('нет PC для трансляции','err');
-    _scrStream.getTracks().forEach(t=>t.stop());
-    _scrStream=null;
-    return;
-  }
-
-  // Add video track
-  for(const track of _scrStream.getTracks()){
-    entry.pc.addTrack(track, _scrStream);
-  }
-
-  // Handle stream stop (user clicks system stop button)
-  _scrStream.getVideoTracks()[0].onended = ()=>{
-    rlog('трансляция остановлена пользователем');
-    scrHostStop();
-  };
-
-  rlog('getDisplayMedia OK, renegotiating...','ok');
-
-  // Renegotiate
-  try{
-    const offer = await entry.pc.createOffer();
-    await entry.pc.setLocalDescription(offer);
-    wsSend({type:'RELAY', to:_scrDcTo, kind:'offer', data:offer});
-    rlog('renego offer sent','ok');
-  }catch(e){
-    rlog('renego error: '+e.message,'err');
-  }
-}
-
-function scrHostStop(){
-  if(_scrStream){
-    _scrStream.getTracks().forEach(t=>t.stop());
-    _scrStream=null;
-  }
-  _scrDcRunning=false;
-  // Notify controller
-  if(_scrDcTo) dcSendRaw(_scrDcTo,{type:'screen_stop'});
-  _scrDcTo=null;
-  rlog('трансляция остановлена');
-}
-
-// HOST: received screen_start from controller
-async function scrDcHostStart(from, msg){
-  _scrDcTo=from; _scrDcRunning=true;
+// ── Host: serve stream to controller ──
+async function scrHostStart(from,msg){
   const dc=rtcs[from]?.dc;
-  rlog('screen_start dc='+(dc?.readyState||'none'));
-  if(!dc||dc.readyState!=='open'){
-    rlog('DC not open','err');
-    _scrDcRunning=false; _scrDcTo=null;
-    return;
-  }
-  // Fetch screen resolution for input coordinate mapping
+  if(!dc||dc.readyState!=='open'){rlog('DC not open','err');return;}
   try{
     const info=await agentFetch('/screeninfo');
     _scrW=info.width||1080; _scrH=info.height||1920;
-    // Tell controller the resolution
-    dcSendRaw(from,{type:'screen_info',w:_scrW,h:_scrH});
+    dcRaw(from,{type:'screen_info',w:_scrW,h:_scrH});
   }catch(_){}
-  _scrDcLoop(msg.fps||8, msg.quality||65);
+  _scrHostTo=from; _scrHostRunning=true;
+  scrHostLoop(msg.fps||8, msg.quality||65);
 }
 
-async function _scrDcLoop(fps, quality){
-  if(!_scrDcRunning||!_scrDcTo) return;
+function scrHostStop(from){ _scrHostRunning=false; _scrHostTo=null; clearTimeout(_scrHostTimer); }
+function scrHostInput(from,msg){ agentFetch('/input',msg).catch(()=>{}); }
+
+let _scrHostRunning=false, _scrHostTo=null, _scrHostTimer=null;
+
+async function scrHostLoop(fps,quality){
+  if(!_scrHostRunning||!_scrHostTo) return;
   const interval=Math.round(1000/fps);
   const SEP=new TextEncoder().encode('--frame');
   const CRLF2=new TextEncoder().encode('\r\n\r\n');
   const url=_agentUrl.replace(/\/+$/,'')+'/stream?q='+quality;
-  rlog('stream: '+url);
   let reader=null;
   try{
     const resp=await fetch(url);
     reader=resp.body.getReader();
-    rlog('stream ok','ok');
     let buf=new Uint8Array(0), frames=0;
-    while(_scrDcRunning){
+    while(_scrHostRunning){
       const{done,value}=await reader.read();
       if(done) break;
       const tmp=new Uint8Array(buf.length+value.length);
       tmp.set(buf); tmp.set(value,buf.length); buf=tmp;
       while(true){
-        const hEnd=_indexOf(buf,CRLF2);
-        if(hEnd===-1) break;
+        const hEnd=_idxOf(buf,CRLF2); if(hEnd===-1) break;
         const dStart=hEnd+4;
-        const fEnd=_indexOf(buf,SEP,dStart);
-        if(fEnd===-1) break;
+        const fEnd=_idxOf(buf,SEP,dStart); if(fEnd===-1) break;
         const frame=buf.slice(dStart,fEnd-2);
         const hdr=new TextDecoder().decode(buf.slice(0,hEnd));
         const mime=hdr.includes('jpeg')?'image/jpeg':'image/png';
         let b64s='';
-        const SZ=16384;
-        for(let i=0;i<frame.length;i+=SZ) b64s+=String.fromCharCode(...frame.slice(i,i+SZ));
-        const b64=btoa(b64s);
-        dcSendRaw(_scrDcTo,{type:'screen_frame',b64,mime});
+        for(let i=0;i<frame.length;i+=16384) b64s+=String.fromCharCode(...frame.slice(i,i+16384));
+        dcRaw(_scrHostTo,{type:'screen_frame',b64:btoa(b64s),mime});
         buf=buf.slice(fEnd);
         frames++;
-        if(frames===1) rlog('first frame '+Math.round(b64.length/1024)+'KB','ok');
+        if(frames===1) rlog('стрим запущен','ok');
         if(interval>0) await new Promise(r=>setTimeout(r,interval));
       }
     }
   }catch(e){
-    rlog('stream err: '+e.message,'err');
+    rlog('stream: '+e.message,'err');
   }finally{
     try{reader?.cancel();}catch(_){}
-    if(_scrDcRunning) setTimeout(()=>_scrDcLoop(fps,quality),2000);
+    if(_scrHostRunning) _scrHostTimer=setTimeout(()=>scrHostLoop(fps,quality),2000);
   }
 }
 
-function _indexOf(buf,seq,from=0){
+function _idxOf(buf,seq,from=0){
   outer:for(let i=from;i<=buf.length-seq.length;i++){
     for(let j=0;j<seq.length;j++) if(buf[i+j]!==seq[j]) continue outer;
     return i;
   } return -1;
 }
 
-function scrDcHostStop(from){
-  _scrDcRunning=false;
-  rlog('← screen_stop');
-  scrHostStop();
-}
-
-function scrDcHostInput(from, msg){
-  agentFetch('/input', msg).catch(()=>{});
-}
-
-// ── CONTROLLER side ───────────────────────────────────
-function scrDcStart(){
-  if(!currentDevice) return;
-  dcSendRaw(currentDevice,{type:'screen_start'});
-  _scrRunning=true; _scrFpsTs=performance.now(); _scrFpsCount=0;
-  $('screen-btn').textContent='⏹ Стоп'; $('screen-btn').style.background='var(--e)';
-  $('screen-placeholder').style.display='none';
-  rlog('screen_start sent','ok');
-  scrFpsLoop();
-}
-
-function scrDcStop(){
-  if(!currentDevice) return;
-  dcSendRaw(currentDevice,{type:'screen_stop'});
-  _scrRunning=false;
-  const img=$('screen-img'); if(img){img.style.display='none';img.src='';}
-  $('screen-placeholder').style.display='';
-  $('screen-btn').textContent='▶ Старт'; $('screen-btn').style.background='';
-  $('screen-fps').textContent='— fps';
-  $('screen-placeholder').style.display='';
-  rlog('screen_stop sent');
-}
-
-// CONTROLLER: received video track from host via WebRTC
-function scrCtrlHandleTrack(track, streams){
-  rlog('video track received: '+track.kind,'ok');
-  const v=$('screen-video');
-  if(!v) return;
-  v.srcObject=streams[0]||new MediaStream([track]);
-  $('screen-placeholder').style.display='none';
-  // FPS from video events
-  v.onloadedmetadata=()=>{
-    _scrW=v.videoWidth||1080; _scrH=v.videoHeight||1920;
-    $('screen-res').textContent=_scrW+'×'+_scrH;
-    rlog('video '+_scrW+'×'+_scrH,'ok');
-  };
-  v.requestPictureInPicture?.().catch(()=>{});
-  // Count frames via requestVideoFrameCallback if available
-  if(v.requestVideoFrameCallback){
-    const countFps=()=>{
-      if(!_scrRunning) return;
-      _scrFpsCount++;
-      v.requestVideoFrameCallback(countFps);
-    };
-    v.requestVideoFrameCallback(countFps);
-  }
-}
-
-// CONTROLLER: screen_stop message from host
-function scrDcCtrlStop(){
-  const img=$('screen-img'); if(img){img.style.display='none';img.src='';}
-  $('screen-placeholder').style.display='';
-  _scrRunning=false;
-  $('screen-btn').textContent='▶ Старт'; $('screen-btn').style.background='';
-  $('screen-fps').textContent='— fps';
-  $('screen-placeholder').style.display='';
-  rlog('трансляция завершена');
-}
-
-function scrDcCtrlFrame(msg){
-  rlog('frame rx '+Math.round(msg.b64.length/1024)+'KB','ok');
-  const img=$('screen-img'); if(!img){rlog('no img el','err');return;}
-  img.style.display='block';
-  img.src='data:'+msg.mime+';base64,'+msg.b64;
-  $('screen-placeholder').style.display='none';
-  _scrFpsCount++;
-}
-
 // ════════════════════════════════════════════
-// SWIPE BACK (device screen)
+// SWIPE BACK
 // ════════════════════════════════════════════
 (()=>{
   let sx=0,sy=0,sw=false;
   const dev=$('s-device');
   dev.addEventListener('touchstart',e=>{sx=e.touches[0].clientX;sy=e.touches[0].clientY;sw=sx<28;},{passive:true});
-  dev.addEventListener('touchmove',e=>{
-    if(!sw) return;
-    const dx=e.touches[0].clientX-sx;
-    if(dx>0&&Math.abs(e.touches[0].clientY-sy)<60) dev.style.transform='translateX('+Math.min(dx,window.innerWidth*.6)+'px)';
-  },{passive:true});
-  dev.addEventListener('touchend',e=>{
-    if(!sw) return; sw=false;
-    const dx=e.changedTouches[0].clientX-sx; dev.style.transform='';
-    if(dx>80) closeDevice();
-  },{passive:true});
+  dev.addEventListener('touchmove',e=>{if(!sw)return;const dx=e.touches[0].clientX-sx;if(dx>0&&Math.abs(e.touches[0].clientY-sy)<60)dev.style.transform='translateX('+Math.min(dx,window.innerWidth*.6)+'px)';},{passive:true});
+  dev.addEventListener('touchend',e=>{if(!sw)return;sw=false;const dx=e.changedTouches[0].clientX-sx;dev.style.transform='';if(dx>80)closeDevice();},{passive:true});
 })();
 
 // ════════════════════════════════════════════
@@ -1401,24 +969,15 @@ function scrDcCtrlFrame(msg){
 // ════════════════════════════════════════════
 (async()=>{
   await loadOrGenKey();
-  $('my-id-badge').textContent=myId;
-
   const saved=localStorage.getItem('tvrc_srv');
   if(saved&&saved!=='wss://tovsa-signaling.onrender.com/signal'){
-    $('srv-select').value='custom';
-    $('srv-custom').style.display='';
-    $('srv-custom').value=saved;
+    $('srv-select').value='custom'; $('srv-custom').style.display=''; $('srv-custom').value=saved;
   }
-
   try{ Object.assign(peers,JSON.parse(localStorage.getItem('tvrc_peers')||'{}')); }catch(_){}
   renderDeviceList();
-
   requestAnimationFrame(()=>{const a=document.querySelector('.tab.act');if(a)movePill(a.id);});
   window.addEventListener('resize',()=>{const a=document.querySelector('.tab.act');if(a)movePill(a.id);});
-
-  if('serviceWorker' in navigator){
-    navigator.serviceWorker.register('/sw.js').catch(()=>{});
-  }
+  if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(()=>{});
 })();
 </script>
 </body>

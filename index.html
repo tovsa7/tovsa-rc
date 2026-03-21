@@ -137,7 +137,7 @@ textarea{resize:none;line-height:1.5}
   flex:1;min-height:0;background:#000;display:flex;
   align-items:center;justify-content:center;position:relative;overflow:hidden;
 }
-#screen-video{max-width:100%;max-height:100%;object-fit:contain;display:block;touch-action:none;cursor:crosshair}
+#screen-img{max-width:100%;max-height:100%;object-fit:contain;touch-action:none;cursor:crosshair}
 #screen-tap-flash{
   position:absolute;border-radius:50%;background:rgba(0,255,157,.4);
   width:28px;height:28px;pointer-events:none;display:none;
@@ -327,11 +327,11 @@ textarea{resize:none;line-height:1.5}
       <button class="btn sm ghost" style="flex:1" onclick="screenKey(26)">⏻</button>
     </div>
     <div id="screen-img-wrap">
-      <video id="screen-video" autoplay playsinline muted
-             style="max-width:100%;max-height:100%;object-fit:contain;display:block;touch-action:none;cursor:crosshair"
-             onpointerdown="scrPtrDown(event)"
-             onpointerup="scrPtrUp(event)"
-             onpointermove="scrPtrMove(event)"></video>
+      <img id="screen-img" draggable="false"
+           style="max-width:100%;max-height:100%;object-fit:contain;display:none;touch-action:none;cursor:crosshair"
+           onpointerdown="scrPtrDown(event)"
+           onpointerup="scrPtrUp(event)"
+           onpointermove="scrPtrMove(event)">
       <div id="screen-placeholder" style="color:var(--mu);font-size:12px;text-align:center;padding:32px">Нажми ▶ Старт</div>
       <div id="screen-tap-flash"></div>
     </div>
@@ -856,7 +856,8 @@ function openDevice(id){
   _scrDcRunning=false;
   $('screen-btn').textContent='▶ Старт'; $('screen-btn').style.background='';
   $('screen-fps').textContent='— fps';
-  const _sv=$('screen-video'); if(_sv) _sv.srcObject=null;
+  const _si=$('screen-img'); if(_si){_si.style.display='none';_si.src='';}
+  if($('screen-placeholder')) $('screen-placeholder').style.display='';
   currentDevice=id;
   const p=peers[id];
   $('dev-name').textContent=p?.name||id.slice(0,16);
@@ -879,7 +880,8 @@ function closeDevice(){
   _scrRunning=false;
   $('screen-btn').textContent='▶ Старт'; $('screen-btn').style.background='';
   $('screen-fps').textContent='— fps';
-  const _sv=$('screen-video'); if(_sv) _sv.srcObject=null;
+  const _si=$('screen-img'); if(_si){_si.style.display='none';_si.src='';}
+  if($('screen-placeholder')) $('screen-placeholder').style.display='';
   currentDevice=null;
   $('btn-back').style.display='none';
   $('topbar-title').textContent='TOVSA RC';
@@ -1078,7 +1080,7 @@ function fileEmoji(n){
 // SCREEN MIRROR
 // ════════════════════════════════════════════
 function scrNorm(e){
-  const img=$('screen-video'), rect=img.getBoundingClientRect();
+  const img=$('screen-img'), rect=img.getBoundingClientRect();
   const ia=_scrW/_scrH, ba=rect.width/rect.height;
   let dW,dH,oX,oY;
   if(ia>ba){dW=rect.width;dH=rect.width/ia;oX=0;oY=(rect.height-dH)/2;}
@@ -1316,7 +1318,8 @@ function scrDcStop(){
   if(!currentDevice) return;
   dcSendRaw(currentDevice,{type:'screen_stop'});
   _scrRunning=false;
-  const v=$('screen-video'); if(v) v.srcObject=null;
+  const img=$('screen-img'); if(img){img.style.display='none';img.src='';}
+  $('screen-placeholder').style.display='';
   $('screen-btn').textContent='▶ Старт'; $('screen-btn').style.background='';
   $('screen-fps').textContent='— fps';
   $('screen-placeholder').style.display='';
@@ -1350,7 +1353,8 @@ function scrCtrlHandleTrack(track, streams){
 
 // CONTROLLER: screen_stop message from host
 function scrDcCtrlStop(){
-  const v=$('screen-video'); if(v) v.srcObject=null;
+  const img=$('screen-img'); if(img){img.style.display='none';img.src='';}
+  $('screen-placeholder').style.display='';
   _scrRunning=false;
   $('screen-btn').textContent='▶ Старт'; $('screen-btn').style.background='';
   $('screen-fps').textContent='— fps';
@@ -1359,13 +1363,10 @@ function scrDcCtrlStop(){
 }
 
 function scrDcCtrlFrame(msg){
-  const v=$('screen-video'); if(!v) return;
-  // Display frame via object URL
-  const blob=new Blob([Uint8Array.from(atob(msg.b64),c=>c.charCodeAt(0))],{type:msg.mime});
-  const url=URL.createObjectURL(blob);
-  const old=v.src;
-  v.src=url;
-  if(old.startsWith('blob:')) URL.revokeObjectURL(old);
+  const img=$('screen-img'); if(!img) return;
+  img.style.display='block';
+  img.src='data:'+msg.mime+';base64,'+msg.b64;
+  $('screen-placeholder').style.display='none';
   _scrFpsCount++;
 }
 

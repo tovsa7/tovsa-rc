@@ -1206,8 +1206,10 @@ async function _scrDcLoop(fps,quality){
   const SEP=new TextEncoder().encode('--frame');
   const CRLF2=new TextEncoder().encode('\r\n\r\n');
   let reader=null;
+  const streamUrl=_agentUrl.replace(/\/+$/,'')+'/stream?q='+quality+'&s=0.5';
+  alog('fetch: '+streamUrl);
   try{
-    const resp=await fetch(_agentUrl.replace(/\/+$/,'')+'/stream?q='+quality+'&s=0.5');
+    const resp=await fetch(streamUrl);
     reader=resp.body.getReader();
     let buf=new Uint8Array(0);
     alog('stream connected');
@@ -1217,6 +1219,7 @@ async function _scrDcLoop(fps,quality){
       // append chunk
       const tmp=new Uint8Array(buf.length+value.length);
       tmp.set(buf); tmp.set(value,buf.length); buf=tmp;
+      _chunkN++; if(_chunkN<=3||_chunkN%20===0) alog('chunk #'+_chunkN+' buf='+buf.length+'B');
       // try to extract complete frame
       while(true){
         const hEnd=_indexOf(buf,CRLF2);

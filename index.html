@@ -406,8 +406,8 @@ select{cursor:pointer;appearance:none;
 
   <!-- Inner tabs -->
   <div class="inner-tabbar">
-    <button class="inner-tab act" id="itab-commands" onclick="switchInnerTab('commands')">⚡ Агент</button>
-    <button class="inner-tab"     id="itab-screen"   onclick="switchInnerTab('screen')">📺 Экран</button>
+    <button class="inner-tab act" id="itab-screen"   onclick="switchInnerTab('screen')">📺 Экран</button>
+    <button class="inner-tab"     id="itab-log"      onclick="switchInnerTab('log')">📋 Лог</button>
   </div>
 
   <!-- ── CHAT panel ── -->
@@ -420,9 +420,13 @@ select{cursor:pointer;appearance:none;
     </div>
   </div>
 
-  <!-- ── COMMANDS panel ── -->
-  <div class="inner-panel on" id="ipanel-commands">
-    <div style="flex:1;display:flex;align-items:center;justify-content:center;padding:32px;text-align:center"><span style="font-size:11px;color:var(--mu)">Настройки агента — в таббаре ⚡</span></div>
+  <!-- ── LOG panel ── -->
+  <div class="inner-panel" id="ipanel-log">
+    <div style="display:flex;align-items:center;gap:8px;padding:6px 10px;background:var(--sf);border-bottom:1px solid var(--bd);flex-shrink:0">
+      <span style="font-size:10px;color:var(--mu);flex:1">Лог устройства</span>
+      <button onclick="copyLog()" style="background:none;border:none;font-size:10px;color:var(--mu);cursor:pointer;padding:3px 8px;font-family:inherit">📋 копировать</button>
+    </div>
+    <div class="r-log" id="r-log" style="flex:1;overflow-y:auto;padding:8px 10px;font-size:11px;font-family:monospace;line-height:1.8"><span style="opacity:.4">пусто</span></div>
   </div>
 
   <!-- ── FILES panel ── -->
@@ -774,7 +778,7 @@ function openDevice(id){
   updateDevRtcBadge(id);
   // Render chat
   renderDeviceChat(id);
-  switchInnerTab('commands');
+  switchInnerTab('screen');
 }
 
 function closeDevice(){
@@ -792,7 +796,7 @@ function closeDevice(){
 }
 
 function switchInnerTab(name){
-  const all=['commands','screen'];
+  const all=['screen','log'];
   const cur=all.find(t=>$('ipanel-'+t)?.classList.contains('on'));
   const dir=all.indexOf(name)>all.indexOf(cur)?'Right':'Left';
   all.forEach(t=>{
@@ -1263,8 +1267,7 @@ function getRtc(id){
       if(remoteVisible) fsCtrlStartBrowse();
     }
     if((s==='failed'||s==='disconnected')&&peers[id]){
-      dbg('RTC разрыв, реконнект через 3с...','err');
-      setTimeout(()=>{ if(rtcs[id]?.state!=='open'&&peers[id]){ try{rtcs[id]?.pc?.close();}catch(_){} delete rtcs[id]; createOffer(id); } },3000);
+      dbg('RTC разрыв','err');
     }
   };
   entry.pc.ondatachannel=e=>{entry._drIsInitiator=false;setupDc(id,e.channel);};

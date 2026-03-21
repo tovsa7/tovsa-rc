@@ -1244,7 +1244,7 @@ async function _scrDcLoop(fps, quality){
   const interval=Math.round(1000/fps);
   const SEP=new TextEncoder().encode('--frame');
   const CRLF2=new TextEncoder().encode('\r\n\r\n');
-  const url=_agentUrl.replace(/\/+$/,'')+'/stream?q='+quality+'&s=0.5';
+  const url=_agentUrl.replace(/\/+$/,'')+'/stream?q='+quality;
   rlog('stream: '+url);
   let reader=null;
   try{
@@ -1363,7 +1363,8 @@ function scrDcCtrlStop(){
 }
 
 function scrDcCtrlFrame(msg){
-  const img=$('screen-img'); if(!img) return;
+  rlog('frame rx '+Math.round(msg.b64.length/1024)+'KB','ok');
+  const img=$('screen-img'); if(!img){rlog('no img el','err');return;}
   img.style.display='block';
   img.src='data:'+msg.mime+';base64,'+msg.b64;
   $('screen-placeholder').style.display='none';

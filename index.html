@@ -1232,13 +1232,13 @@ async function _scrDcLoop(fps,quality){
       const tmp=new Uint8Array(buf.length+value.length);
       tmp.set(buf); tmp.set(value,buf.length); buf=tmp;
       reads++;
-      if(reads<=3) rlog('chunk #'+reads+' size='+value.length+' buf='+buf.length);
+      rlog('chunk #'+reads+' +'+value.length+'B buf='+buf.length+'B');
       while(true){
         const hEnd=_indexOf(buf,CRLF2);
-        if(hEnd===-1) break;
+        if(hEnd===-1){ if(reads<=3) rlog('no CRLF2 in '+buf.length+'B'); break; }
         const dStart=hEnd+4;
         const fEnd=_indexOf(buf,SEP,dStart);
-        if(fEnd===-1) break;
+        if(fEnd===-1){ if(reads<=3) rlog('no SEP after hEnd='+hEnd+' dStart='+dStart+' buf='+buf.length+'B'); break; }
         const frame=buf.slice(dStart,fEnd-2);
         const hdr=new TextDecoder().decode(buf.slice(0,hEnd));
         const mime=hdr.includes('jpeg')?'image/jpeg':'image/png';

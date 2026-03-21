@@ -34,6 +34,22 @@ def main():
     INSTALL_DIR.mkdir(parents=True, exist_ok=True)
 
     # Скачать agent.py
+    # Получаем SHA последнего коммита
+    try:
+        api = urllib.request.Request(
+            "https://api.github.com/repos/tovsa7/tovsa-rc/commits/main",
+            headers={"User-Agent": "TovsaRC-Bootstrap/1.0", "Accept": "application/vnd.github.v3+json"}
+        )
+        with urllib.request.urlopen(api, timeout=5) as r:
+            import json as _json
+            info = _json.loads(r.read())
+        sha   = info["sha"][:7]
+        msg   = info["commit"]["message"].split("\n")[0][:60]
+        date  = info["commit"]["committer"]["date"][:10]
+        print(f"  📦 Коммит: {sha}  {date}  {msg}")
+    except Exception as e:
+        print(f"  ⚠  Не удалось получить коммит: {e}")
+
     print(f"  ↓ Скачиваю agent.py с GitHub...")
     try:
         req = urllib.request.Request(

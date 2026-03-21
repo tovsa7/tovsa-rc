@@ -7,6 +7,8 @@ HTTP  на localhost:7070 (fallback)
 """
 
 import json
+import socket
+import struct
 import os
 import ssl
 import subprocess
@@ -146,6 +148,121 @@ IS_TERMUX = Path("/data/data/com.termux/files/home").exists()
 CWD = str(Path.home() / "storage" / "shared") if IS_TERMUX and (Path.home() / "storage" / "shared").exists() else str(Path.home())
 
 
+
+# ── VNC frame capture ─────────────────────────────────
+_vnc_sock = None
+_vnc_w    = 0
+_vnc_h    = 0
+VNC_PASS  = ""  # set by vncserver on first run
+
+def _des_key(password):
+    """Reverse bit order of each byte for VNC DES."""
+    pwd = (password + "\x00" * 8)[:8].encode("latin-1")
+    return bytes([int(f"{b:08b}"[::-1], 2) for b in pwd])
+
+def _des_encrypt(key, data):
+    try:
+        from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
+        from cryptography.hazmat.backends import default_backend
+        k = _des_key(key)
+        c = Cipher(algorithms.TripleDES(k * 3), modes.ECB(), backend=default_backend())
+        enc = c.encryptor()
+        return enc.update(data) + enc.finalize()
+    except Exception:
+        return data  # fallback
+
+def _vnc_read_exact(s, n):
+    buf = b""
+    while len(buf) < n:
+        chunk = s.recv(n - len(buf))
+        if not chunk:
+            raise ConnectionError("VNC disconnected")
+        buf += chunk
+    return buf
+
+def _vnc_connect(password=""):
+    global _vnc_sock, _vnc_w, _vnc_h
+    s = socket.socket()
+    s.settimeout(5)
+    s.connect(("localhost", 5901))
+    _vnc_read_exact(s, 12)          # server version
+    s.send(b"RFB 003.008\n")
+    n = struct.unpack("B", _vnc_read_exact(s, 1))[0]
+    types = list(_vnc_read_exact(s, n))
+    if 2 in types:
+        s.send(bytes([2]))
+        challenge = _vnc_read_exact(s, 16)
+        s.send(_des_encrypt(password, challenge))
+        result = struct.unpack(">I", _vnc_read_exact(s, 4))[0]
+        if result != 0:
+            raise Exception("VNC auth failed")
+    elif 1 in types:
+        s.send(bytes([1]))
+        _vnc_read_exact(s, 4)
+    else:
+        raise Exception("No supported security type")
+    s.send(bytes([1]))              # ClientInit: shared
+    w, h = struct.unpack(">HH", _vnc_read_exact(s, 4))
+    _vnc_read_exact(s, 16)         # pixel format
+    nl = struct.unpack(">I", _vnc_read_exact(s, 4))[0]
+    _vnc_read_exact(s, nl)         # name
+    _vnc_w, _vnc_h = w, h
+    # Set pixel format: 32bpp BGR
+    s.send(struct.pack(">BBBBBBBBHHHBBBBxx",
+        0, 0, 0, 0,      # type + padding
+        32, 24, 0, 1,    # bpp, depth, big-endian=0, true-color=1
+        255, 255, 255,   # r/g/b max
+        16, 8, 0))       # r/g/b shift
+    _vnc_sock = s
+
+def _vnc_capture_jpeg(quality=65, scale=1.0):
+    global _vnc_sock, _vnc_w, _vnc_h
+    try:
+        from PIL import Image
+        import io as _io
+        if not _vnc_sock:
+            _vnc_connect(VNC_PASS)
+        s = _vnc_sock
+        s.settimeout(3)
+        # Request full update
+        s.send(struct.pack(">BBHHHH", 3, 0, 0, 0, _vnc_w, _vnc_h))
+        # Read FramebufferUpdate
+        t = _vnc_read_exact(s, 1)[0]
+        if t != 0:
+            return None
+        _vnc_read_exact(s, 1)   # padding
+        n = struct.unpack(">H", _vnc_read_exact(s, 2))[0]
+        canvas = bytearray(_vnc_w * _vnc_h * 4)
+        for _ in range(n):
+            x, y, w, h = struct.unpack(">HHHH", _vnc_read_exact(s, 8))
+            enc = struct.unpack(">i", _vnc_read_exact(s, 4))[0]
+            if enc == 0:  # Raw
+                size = w * h * 4
+                data = _vnc_read_exact(s, size)
+                # Copy rect into canvas
+                for row in range(h):
+                    src = row * w * 4
+                    dst = ((y + row) * _vnc_w + x) * 4
+                    canvas[dst:dst + w*4] = data[src:src + w*4]
+        img = Image.frombytes("RGBX", (_vnc_w, _vnc_h), bytes(canvas)).convert("RGB")
+        if scale < 1.0:
+            img = img.resize((int(_vnc_w*scale), int(_vnc_h*scale)), Image.BILINEAR)
+        buf = _io.BytesIO()
+        img.save(buf, format="JPEG", quality=quality)
+        return buf.getvalue()
+    except Exception as e:
+        _vnc_sock = None
+        return None
+
+VNC_AVAILABLE = False
+try:
+    _vnc_connect("")
+    VNC_AVAILABLE = True
+    _vnc_sock = None  # reconnect on demand
+    print(f"  ✓  VNC доступен ({_vnc_w}×{_vnc_h})")
+except Exception as e:
+    print(f"  ℹ  VNC недоступен: {e}")
+
 # ── Handler ────────────────────────────────────────────
 class AgentHandler(BaseHTTPRequestHandler):
 
@@ -255,8 +372,15 @@ class AgentHandler(BaseHTTPRequestHandler):
             try:
                 while True:
                     t0 = time.monotonic()
-                    frame = _capture_jpeg(quality, scale) if HAS_PILLOW else _capture_png()
-                    mime  = b"image/jpeg" if HAS_PILLOW else b"image/png"
+                    if VNC_AVAILABLE:
+                        frame = _vnc_capture_jpeg(quality, scale)
+                        mime  = b"image/jpeg"
+                    elif HAS_PILLOW:
+                        frame = _capture_jpeg(quality, scale)
+                        mime  = b"image/jpeg"
+                    else:
+                        frame = _capture_png()
+                        mime  = b"image/png"
                     if frame is None:
                         time.sleep(0.5); continue
                     self.wfile.write(

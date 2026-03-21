@@ -902,7 +902,7 @@ async function scrHostStart(from,msg){
 }
 
 function scrHostStop(from){ _scrHostRunning=false; _scrHostTo=null; clearTimeout(_scrHostTimer); }
-function scrHostInput(from,msg){ agentFetch('/input',msg).catch(()=>{}); }
+function scrHostInput(from,msg){ rlog('input: '+JSON.stringify(msg)); agentFetch('/input',msg).then(r=>rlog('input ok')).catch(e=>rlog('input err: '+e.message,'err')); }
 
 let _scrHostRunning=false, _scrHostTo=null, _scrHostTimer=null;
 

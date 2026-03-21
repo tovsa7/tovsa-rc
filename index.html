@@ -2,638 +2,366 @@
 <html lang="ru">
 <head>
 <meta charset="UTF-8">
-<script>
-// Сносим ВСЕ старые service worker-ы при каждой загрузке
-if('serviceWorker' in navigator){
-  navigator.serviceWorker.getRegistrations().then(regs=>{
-    regs.forEach(r=>{ r.update(); });
-  });
-}
-</script>
-<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<meta name="theme-color" content="#0a0a0f">
-<meta name="mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="Tovsa RC">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Tovsa RC</title>
 <link rel="manifest" href="/manifest.json">
 <link rel="apple-touch-icon" href="/icon-192.png">
-<title>Tovsa Remote</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
 <style>
-@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap');
-
-*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
-html,body{height:100%;overflow:hidden}
 :root{
-  --bg:#0a0a0f;--sf:#12121a;--bd:#2c2c42;
-  --a:#00ff9d;--ad:rgba(0,255,157,.08);--am:rgba(0,255,157,.18);
-  --tx:#e0e0f0;--mu:#9090b8;
-  --w:#e5c07b;--e:#e06c75;
-  --br:14px;
-  --topbar-h:48px;
-  --tabbar-h:62px;
+  --bg:#0a0a0f;--sf:#12121a;--bd:rgba(255,255,255,.08);
+  --tx:#e8e8f0;--mu:#6060a0;--a:#00ff9d;--e:#ff4d6d;--w:#e5c07b;
+  --ad:rgba(0,255,157,.07);
 }
-body{
-  font-family:'JetBrains Mono',monospace;
-  background:var(--bg);color:var(--tx);
-}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--tx);font-family:'JetBrains Mono',monospace}
 
-/* ── FIXED TOPBAR ── */
-.topbar{
-  position:fixed;top:0;left:0;right:0;z-index:50;
-  height:calc(var(--topbar-h) + env(safe-area-inset-top,0px));
-  padding:0 16px;
-  padding-top:env(safe-area-inset-top,0px);
-  background:var(--sf);border-bottom:1px solid var(--bd);
+/* ── Layout ── */
+#app{position:fixed;inset:0;display:flex;flex-direction:column}
+#topbar{
   display:flex;align-items:center;gap:10px;
+  padding:12px 16px;padding-top:calc(12px + env(safe-area-inset-top,0px));
+  background:var(--sf);border-bottom:1px solid var(--bd);flex-shrink:0;
 }
-.topbar-title{font-size:13px;font-weight:700;color:var(--a);letter-spacing:2px;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.dot{width:8px;height:8px;border-radius:50%;background:var(--mu);transition:background .4s;flex-shrink:0}
-.dot.act{background:var(--w);box-shadow:0 0 8px var(--w)}
-.dot.on{background:var(--a);box-shadow:0 0 8px var(--a)}
-.topbar-id{
-  font-size:10px;color:var(--a);
-  background:var(--ad);border:1px solid rgba(0,255,157,.2);
-  border-radius:6px;padding:3px 8px;
-  max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
-  cursor:pointer;display:none;flex-shrink:0;
-}
-.topbar-back{
-  background:none;border:none;color:var(--mu);
-  font-size:22px;cursor:pointer;padding:0;line-height:1;flex-shrink:0;
-  display:none;
-}
-
-/* ── SCREENS (fixed, fill between topbar and tabbar) ── */
-.scr{
-  position:fixed;
-  top:calc(var(--topbar-h) + env(safe-area-inset-top,0px));
-  left:0;right:0;
-  bottom:calc(var(--tabbar-h) + env(safe-area-inset-bottom,0px));
-  display:none;flex-direction:column;overflow:hidden;
-}
+#topbar-title{font-size:13px;font-weight:700;letter-spacing:1.5px;flex:1}
+#screens{flex:1;position:relative;overflow:hidden}
+.scr{position:absolute;inset:0;display:none;flex-direction:column;overflow:hidden}
 .scr.on{display:flex}
-
-/* Device screen — full screen, no tabbar */
-#s-device{
-  position:fixed;
-  top:calc(var(--topbar-h) + env(safe-area-inset-top,0px));
-  left:0;right:0;
-  bottom:0;
-  display:none;flex-direction:column;overflow:hidden;
-  z-index:20;
-}
-#s-device.on{display:flex}
-
-/* ── FLOATING TABBAR ── */
-.tabbar{
-  display:flex;flex-shrink:0;
-  background:var(--sf);
-  border:1px solid var(--bd);
-  position:fixed;
-  bottom:calc(10px + env(safe-area-inset-bottom,0px));
-  left:12px;right:12px;
-  z-index:100;
-  padding:5px;gap:0;
-  border-radius:18px;
-  box-shadow:0 4px 24px rgba(0,0,0,.45),0 1px 0 rgba(255,255,255,.04) inset;
+#tabbar{
+  display:flex;background:var(--sf);border-top:1px solid var(--bd);
+  padding-bottom:env(safe-area-inset-bottom,0px);flex-shrink:0;position:relative;
 }
 #tab-pill{
-  position:absolute;top:5px;bottom:5px;
-  background:var(--ad);border:1px solid rgba(0,255,157,.2);
-  border-radius:13px;pointer-events:none;
-  transition:left .28s cubic-bezier(.34,1.4,.64,1),width .28s cubic-bezier(.34,1.4,.64,1);
-  box-shadow:0 0 12px rgba(0,255,157,.08);
+  position:absolute;top:0;height:2px;background:var(--a);
+  border-radius:0 0 2px 2px;transition:left .2s ease,width .2s ease;
 }
 .tab{
-  flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;
-  padding:7px 4px;cursor:pointer;font-family:inherit;
-  border:none;background:transparent;color:var(--mu);
-  transition:color .2s,transform .15s;
-  -webkit-tap-highlight-color:transparent;outline:none;
-  border-radius:13px;position:relative;z-index:1;
+  flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;
+  padding:10px 4px;border:none;background:transparent;color:var(--mu);
+  font-family:inherit;font-size:9px;font-weight:700;letter-spacing:.8px;
+  cursor:pointer;transition:color .15s;
 }
-.tab:active{transform:scale(.9)}
+.tab .ti{font-size:18px;line-height:1}
 .tab.act{color:var(--a)}
-.tab-icon{font-size:20px;line-height:1}
-.tab-label{font-size:9px;letter-spacing:.5px;font-weight:700}
-.tab-badge{
-  display:none;min-width:16px;height:16px;padding:0 4px;
-  background:var(--e);color:#fff;font-size:9px;font-weight:700;
-  border-radius:8px;align-items:center;justify-content:center;
-  position:absolute;top:-4px;right:-2px;
+.badge{
+  position:absolute;top:6px;right:6px;
+  background:var(--e);color:#fff;border-radius:99px;
+  font-size:9px;font-weight:700;padding:1px 5px;min-width:16px;text-align:center;
 }
-.tab-icon-wrap{position:relative;display:flex;align-items:center;justify-content:center}
 
-/* ── INNER TABS (inside device screen) ── */
-.inner-tabbar{
-  display:flex;border-bottom:1px solid var(--bd);
-  background:var(--sf);flex-shrink:0;
-  padding:0 8px;gap:0;
+/* ── Device screen overlay ── */
+#s-device{
+  position:fixed;inset:0;z-index:100;background:var(--bg);
+  flex-direction:column;display:none;
 }
-.inner-tab{
-  flex:1;padding:10px 4px;text-align:center;
-  font-family:inherit;font-size:11px;font-weight:700;
-  cursor:pointer;color:var(--mu);border:none;background:transparent;
-  border-bottom:2px solid transparent;
-  transition:color .15s,border-color .15s;
-  letter-spacing:.5px;
+#s-device.on{display:flex}
+.dev-header{
+  display:flex;align-items:center;gap:10px;
+  padding:12px 16px;padding-top:calc(12px + env(safe-area-inset-top,0px));
+  background:var(--sf);border-bottom:1px solid var(--bd);flex-shrink:0;
 }
-.inner-tab.act{color:var(--a);border-bottom-color:var(--a)}
-.inner-panel{display:none;flex:1;min-height:0;flex-direction:column;overflow:hidden}
-.inner-panel.on{display:flex}
+.dev-header-info{flex:1;min-width:0}
+.dev-name{font-size:13px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dev-sub{font-size:10px;color:var(--mu);margin-top:2px}
 
-/* ── SHARED COMPONENTS ── */
-input,textarea,select{
-  width:100%;background:var(--bg);border:1px solid var(--bd);
-  border-radius:10px;padding:11px 14px;
-  color:var(--tx);font-family:inherit;font-size:12px;
-  outline:none;transition:border-color .2s;
-}
-input:focus,textarea:focus,select:focus{border-color:var(--a)}
-input::placeholder,textarea::placeholder{color:var(--mu)}
-textarea{resize:none;line-height:1.5}
-select{cursor:pointer;appearance:none;
-  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%239090b8'/%3E%3C/svg%3E");
-  background-repeat:no-repeat;background-position:right 12px center}
-
+/* ── Common components ── */
 .btn{
-  background:var(--a);color:#000;border:none;
-  border-radius:10px;padding:12px 18px;
-  font-family:inherit;font-size:12px;font-weight:700;
-  cursor:pointer;letter-spacing:.5px;
-  transition:opacity .15s,transform .1s;
-  display:inline-flex;align-items:center;justify-content:center;gap:6px;
+  background:var(--a);color:#000;border:none;border-radius:10px;
+  padding:12px 18px;font-family:inherit;font-size:12px;font-weight:700;
+  cursor:pointer;letter-spacing:.5px;display:inline-flex;align-items:center;
+  justify-content:center;gap:6px;transition:opacity .15s,transform .1s;
 }
 .btn:active{opacity:.8;transform:scale(.97)}
 .btn:disabled{opacity:.3;cursor:not-allowed;transform:none}
+.btn.sm{padding:7px 12px;font-size:11px;border-radius:8px}
 .btn.ghost{background:transparent;color:var(--mu);border:1px solid var(--bd)}
 .btn.ghost:active{background:var(--sf)}
 .btn.danger{background:var(--e);color:#fff}
-.btn.sm{padding:7px 12px;font-size:11px;border-radius:8px}
 .btn.full{width:100%}
-
+input,textarea,select{
+  width:100%;background:var(--bg);border:1px solid var(--bd);border-radius:10px;
+  padding:11px 14px;color:var(--tx);font-family:inherit;font-size:12px;
+  outline:none;transition:border-color .2s;
+}
+input:focus,textarea:focus{border-color:var(--a)}
+input::placeholder,textarea::placeholder{color:var(--mu)}
+textarea{resize:none;line-height:1.5}
 .card{
-  background:var(--sf);border:1px solid var(--bd);
-  border-radius:var(--br);padding:16px;
-  display:flex;flex-direction:column;gap:10px;flex-shrink:0;
+  background:var(--sf);border:1px solid var(--bd);border-radius:14px;
+  padding:14px;display:flex;flex-direction:column;gap:10px;
 }
-.card-title{font-size:10px;color:var(--mu);letter-spacing:2px;text-transform:uppercase}
-.row{display:flex;gap:8px}
-.section-scroll{flex:1;min-height:0;overflow-y:auto;padding:14px;display:flex;flex-direction:column;gap:12px;}
+.card-title{font-size:10px;color:var(--mu);letter-spacing:1.5px;text-transform:uppercase}
+.row{display:flex;gap:8px;align-items:center}
+.section-scroll{flex:1;overflow-y:auto;padding:12px;display:flex;flex-direction:column;gap:10px}
+.dot{width:7px;height:7px;border-radius:50%;background:var(--mu);transition:background .3s}
+.dot.on{background:var(--a);box-shadow:0 0 8px var(--a)}
+.dot.err{background:var(--e)}
+#toasts{position:fixed;top:20px;left:50%;transform:translateX(-50%);z-index:999;display:flex;flex-direction:column;gap:6px;align-items:center;pointer-events:none}
+.toast{background:var(--sf);border:1px solid var(--bd);border-radius:10px;padding:8px 16px;font-size:12px;white-space:nowrap;pointer-events:all;animation:fadeIn .2s ease}
+.toast.ok{border-color:rgba(0,255,157,.3);color:var(--a)}
+.toast.err{border-color:rgba(255,77,109,.3);color:var(--e)}
+@keyframes fadeIn{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:translateY(0)}}
 
-/* ── SETTINGS SCREEN ── */
-.setup-logo{text-align:center;padding:16px 0 8px}
-.setup-logo-text{font-size:20px;font-weight:700;color:var(--a);letter-spacing:3px}
-.setup-logo-sub{font-size:10px;color:var(--mu);margin-top:4px;letter-spacing:1px}
+/* ── Settings screen ── */
+.my-id{
+  font-size:10px;color:var(--mu);background:var(--bg);border:1px solid var(--bd);
+  border-radius:8px;padding:8px 10px;cursor:pointer;overflow:hidden;
+  text-overflow:ellipsis;white-space:nowrap;letter-spacing:.5px;
+}
+.qr-wrap{display:flex;justify-content:center;padding:8px;background:#fff;border-radius:10px}
 
-/* ── DEVICES LIST ── */
+/* ── Device list ── */
 .device-item{
-  display:flex;align-items:center;gap:12px;
-  padding:12px 14px;border-radius:12px;
-  border:1px solid var(--bd);background:var(--sf);
-  cursor:pointer;transition:border-color .12s,background .12s;
-  flex-shrink:0;
+  display:flex;align-items:center;gap:12px;padding:14px 16px;
+  border-bottom:1px solid var(--bd);cursor:pointer;transition:background .15s;
 }
-.device-item:active{border-color:rgba(0,255,157,.3);background:var(--ad)}
-.device-item.connected{border-color:rgba(0,255,157,.2)}
-.device-avatar{
-  width:44px;height:44px;border-radius:12px;
-  background:var(--ad);border:1px solid rgba(0,255,157,.15);
-  display:flex;align-items:center;justify-content:center;
-  font-size:20px;flex-shrink:0;
-}
+.device-item:active{background:var(--sf)}
+.device-avatar{font-size:28px;flex-shrink:0}
 .device-info{flex:1;min-width:0}
 .device-name{font-size:13px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.device-status{font-size:10px;color:var(--mu);margin-top:3px;display:flex;align-items:center;gap:5px}
-.device-status-dot{width:6px;height:6px;border-radius:50%;background:var(--mu);flex-shrink:0}
-.device-status-dot.online{background:var(--a);box-shadow:0 0 5px var(--a)}
-.device-status-dot.rtc{background:#60a5fa;box-shadow:0 0 5px #60a5fa}
+.device-status{font-size:10px;color:var(--mu);display:flex;align-items:center;gap:5px;margin-top:3px}
+.status-dot{width:5px;height:5px;border-radius:50%;background:var(--mu)}
+.status-dot.on{background:var(--a)}
+.status-dot.rtc{background:#60a5fa}
 
-/* ── DEVICE SCREEN header ── */
-.device-header{
-  padding:10px 14px;border-bottom:1px solid var(--bd);
-  background:var(--sf);display:flex;align-items:center;gap:10px;flex-shrink:0;
+/* ── RTC badge ── */
+.rtc-badge{font-size:10px;font-weight:700;padding:3px 8px;border-radius:6px;border:1px solid var(--bd);color:var(--mu)}
+.rtc-badge.open{border-color:rgba(96,165,250,.4);color:#60a5fa}
+.rtc-badge.connecting{border-color:rgba(229,192,123,.4);color:var(--w)}
+
+/* ── Screen panel ── */
+#screen-panel{display:flex;flex-direction:column;flex:1;min-height:0;overflow:hidden}
+#screen-img-wrap{
+  flex:1;min-height:0;background:#000;display:flex;
+  align-items:center;justify-content:center;position:relative;overflow:hidden;
 }
-.device-header-info{flex:1;min-width:0}
-.device-header-name{font-size:14px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.device-header-sub{font-size:10px;color:var(--mu);margin-top:2px}
-.rtc-badge{font-size:10px;padding:3px 9px;border-radius:6px;border:1px solid var(--bd);color:var(--mu);flex-shrink:0}
-.rtc-badge.connecting{border-color:var(--w);color:var(--w)}
-.rtc-badge.open{border-color:var(--a);color:var(--a)}
-
-/* ── CHAT ── */
-.msgs{flex:1;min-height:0;overflow-y:auto;padding:12px 14px;display:flex;flex-direction:column;gap:6px;touch-action:pan-y}
-.msg{max-width:78%;padding:10px 13px;border-radius:14px;font-size:13px;line-height:1.5;word-break:break-word;white-space:pre-wrap;animation:popIn .18s ease}
-@keyframes popIn{from{opacity:0;transform:scale(.93) translateY(4px)}to{opacity:1;transform:none}}
-.msg.out{align-self:flex-end;background:rgba(0,255,157,.1);border:1px solid rgba(0,255,157,.2);border-bottom-right-radius:4px}
-.msg.in{align-self:flex-start;background:var(--sf);border:1px solid var(--bd);border-bottom-left-radius:4px}
-.msg.sys{align-self:center;font-size:11px;color:var(--mu);background:none;border:none;padding:2px 8px}
-.msg-time{font-size:9px;color:var(--mu);margin-top:3px;text-align:right}
-.iarea{
-  padding:10px 12px;border-top:1px solid var(--bd);
-  background:var(--sf);display:flex;gap:8px;align-items:flex-end;flex-shrink:0;
-  padding-bottom:calc(10px + env(safe-area-inset-bottom,0px));
+#screen-img{max-width:100%;max-height:100%;object-fit:contain;display:block;touch-action:none;cursor:crosshair}
+#screen-tap-flash{
+  position:absolute;border-radius:50%;background:rgba(0,255,157,.4);
+  width:28px;height:28px;pointer-events:none;display:none;
+  transform:translate(-50%,-50%);transition:opacity .3s;
 }
-.iarea textarea{
-  flex:1;height:calc(1.5em + 22px);max-height:110px;
-  overflow-y:auto;resize:none;border-radius:16px;padding:10px 14px;
-  font-size:13px;line-height:1.5;scrollbar-width:none;
+#screen-toolbar{
+  display:flex;align-items:center;gap:6px;padding:6px 10px;
+  background:var(--sf);border-bottom:1px solid var(--bd);flex-shrink:0;
 }
-.iarea textarea::-webkit-scrollbar{display:none}
-.send-btn{
-  width:40px;height:40px;border-radius:50%;
-  background:var(--a);border:none;color:#000;
-  font-size:17px;cursor:pointer;flex-shrink:0;
-  display:flex;align-items:center;justify-content:center;
-  align-self:flex-end;transition:opacity .15s,transform .1s;
+#screen-keys{
+  display:flex;gap:4px;padding:4px 10px;
+  background:var(--sf);border-bottom:1px solid var(--bd);flex-shrink:0;
 }
-.send-btn:active{opacity:.8;transform:scale(.9)}
-
-/* ── COMMANDS ── */
-.r-card{background:var(--sf);border:1px solid var(--bd);border-radius:14px;padding:14px;display:flex;flex-direction:column;gap:10px}
-.r-card-title{font-size:10px;color:var(--mu);letter-spacing:1.5px;text-transform:uppercase;display:flex;align-items:center;gap:8px}
-.presets{display:flex;flex-wrap:wrap;gap:6px}
-.preset{font-size:11px;padding:5px 11px;background:transparent;border:1px solid var(--bd);border-radius:20px;color:var(--mu);cursor:pointer;font-family:inherit;transition:all .12s}
-.preset:active{border-color:var(--a);color:var(--a);background:var(--ad)}
-.r-log{background:var(--bg);border:1px solid var(--bd);border-radius:10px;padding:10px 12px;font-size:10px;color:var(--mu);line-height:1.8;max-height:140px;overflow-y:auto;min-height:44px}
-.r-log .l-ok{color:var(--a)}.r-log .l-in{color:#60a5fa}.r-log .l-err{color:var(--e)}
-
-/* ── FILES ── */
-.fm-bar{padding:8px 12px;border-bottom:1px solid var(--bd);background:var(--sf);display:flex;align-items:center;gap:6px;flex-shrink:0;flex-wrap:nowrap}
-.fm-path{flex:1;font-size:11px;color:var(--a);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
-.fm-list{flex:1;min-height:0;overflow-y:auto;background:var(--bg)}
-.fm-item{display:flex;align-items:center;gap:10px;padding:11px 14px;border-bottom:1px solid rgba(44,44,66,.4);cursor:pointer;transition:background .1s;user-select:none}
-.fm-item:active{background:var(--ad)}
-.fm-icon{font-size:20px;flex-shrink:0;width:26px;text-align:center}
-.fm-name{flex:1;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.fm-meta{font-size:10px;color:var(--mu);flex-shrink:0;text-align:right;line-height:1.4;white-space:nowrap}
-.fm-empty{padding:40px;text-align:center;font-size:12px;color:var(--mu)}
-.fm-actions{padding:10px 12px;border-top:1px solid var(--bd);background:var(--sf);display:flex;gap:6px;flex-wrap:wrap;flex-shrink:0;padding-bottom:calc(10px + env(safe-area-inset-bottom,0px))}
-.host-badge{font-size:10px;padding:3px 8px;border-radius:6px;background:rgba(229,192,123,.1);border:1px solid rgba(229,192,123,.3);color:var(--w);flex-shrink:0}
-.xfer-bar{display:none;padding:8px 14px;background:var(--sf);border-top:1px solid var(--bd);flex-direction:column;gap:6px;flex-shrink:0}
-.xfer-bar.on{display:flex}
-.xfer-info{display:flex;justify-content:space-between;font-size:11px;color:var(--mu)}
-.xfer-prog{height:3px;background:var(--bd);border-radius:2px;overflow:hidden}
-.xfer-fill{height:100%;background:var(--a);border-radius:2px;transition:width .1s;width:0%}
-
-/* ── NO RTC PROMPT ── */
-.rtc-prompt{
-  margin:12px 14px 0;padding:12px 14px;
-  background:rgba(229,192,123,.07);border:1px solid rgba(229,192,123,.2);
-  border-radius:12px;display:flex;align-items:center;gap:10px;flex-shrink:0;
+#screen-text-row{
+  display:flex;gap:6px;padding:6px 10px;
+  background:var(--sf);border-top:1px solid var(--bd);flex-shrink:0;
 }
-.rtc-prompt-text{flex:1;font-size:11px;color:var(--w);line-height:1.5}
-.rtc-prompt-btn{background:var(--w);color:#000;border:none;border-radius:8px;padding:8px 12px;font-family:inherit;font-size:11px;font-weight:700;cursor:pointer;flex-shrink:0}
 
-/* ── MODAL SHEET ── */
-.modal-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:200;flex-direction:column;align-items:center;justify-content:flex-end;backdrop-filter:blur(4px)}
+/* ── Log ── */
+#r-log{
+  flex:1;overflow-y:auto;padding:8px 10px;font-size:11px;
+  line-height:1.8;font-family:'JetBrains Mono',monospace;
+}
+.l-ok{color:var(--a)}.l-err{color:var(--e)}.l-in{color:#60a5fa}
+
+/* ── Agent terminal ── */
+#agent-ls{
+  background:var(--bg);border:1px solid var(--bd);border-radius:8px;
+  overflow:hidden;max-height:200px;overflow-y:auto;
+}
+.ls-item{
+  display:flex;align-items:center;gap:8px;padding:7px 10px;
+  border-bottom:1px solid rgba(44,44,66,.4);cursor:pointer;font-size:12px;
+}
+.ls-item:active{background:var(--sf)}
+#agent-output{
+  display:none;background:var(--bg);border:1px solid var(--bd);border-radius:8px;
+  padding:8px 10px;font-size:10px;line-height:1.7;max-height:150px;
+  overflow-y:auto;white-space:pre-wrap;word-break:break-all;
+}
+
+/* ── Modal ── */
+.modal-bg{
+  position:fixed;inset:0;z-index:200;background:rgba(0,0,0,.8);
+  display:none;flex-direction:column;justify-content:flex-end;
+  backdrop-filter:blur(4px);
+}
 .modal-bg.on{display:flex}
-.modal-sheet{background:var(--sf);border:1px solid var(--bd);border-radius:20px 20px 0 0;width:100%;max-width:500px;padding:20px;padding-bottom:calc(20px + env(safe-area-inset-bottom,0px));display:flex;flex-direction:column;gap:14px;animation:slideUp .22s ease}
-@keyframes slideUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
-.modal-title{font-size:14px;font-weight:700;text-align:center}
-.modal-tabs{display:flex;gap:0;border:1px solid var(--bd);border-radius:10px;overflow:hidden}
-.modal-tab{flex:1;padding:9px;text-align:center;font-family:inherit;font-size:11px;font-weight:700;cursor:pointer;background:transparent;border:none;color:var(--mu);transition:all .12s}
-.modal-tab.act{background:var(--ad);color:var(--a)}
-.modal-tab-panel{display:none}
-.modal-tab-panel.on{display:flex;flex-direction:column;gap:12px}
-.qr-wrap{background:white;border-radius:12px;padding:16px;display:flex;align-items:center;justify-content:center;margin:0 auto;width:fit-content}
-.my-id-box{background:var(--bg);border:1px solid rgba(0,255,157,.2);border-radius:10px;padding:12px 14px;font-size:11px;color:var(--a);word-break:break-all;cursor:pointer;text-align:center}
+.modal-sheet{
+  background:var(--sf);border-radius:20px 20px 0 0;
+  border-top:1px solid var(--bd);padding:20px;
+  padding-bottom:calc(20px + env(safe-area-inset-bottom,0px));
+  display:flex;flex-direction:column;gap:12px;
+}
+.modal-title{font-size:14px;font-weight:700}
 
-/* ── EDITOR ── */
-.editor-modal{display:none;position:fixed;inset:0;z-index:300;background:var(--bg);flex-direction:column}
-.editor-modal.on{display:flex}
-.editor-bar{padding:10px 14px;border-bottom:1px solid var(--bd);background:var(--sf);display:flex;align-items:center;gap:8px;flex-shrink:0}
-.editor-filename{flex:1;font-size:12px;color:var(--a);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-#editor-ta{flex:1;resize:none;border:none;outline:none;background:var(--bg);color:var(--tx);font-family:'JetBrains Mono',monospace;font-size:12px;line-height:1.6;padding:14px;overflow-y:auto}
-
-/* ── ANIMATIONS ── */
-@keyframes slideInRight{from{opacity:0;transform:translateX(28px)}to{opacity:1;transform:none}}
-@keyframes slideInLeft{from{opacity:0;transform:translateX(-28px)}to{opacity:1;transform:none}}
-@keyframes slideInFromRight{from{transform:translateX(100%)}to{transform:translateX(0)}}
-@keyframes slideOutToRight{from{transform:translateX(0)}to{transform:translateX(100%)}}
-
-/* ── TOAST ── */
-#toasts{position:fixed;top:calc(20px + env(safe-area-inset-top,0px));left:50%;transform:translateX(-50%);display:flex;flex-direction:column;gap:7px;z-index:999;pointer-events:none;width:calc(100% - 40px);max-width:360px}
-.toast{background:var(--sf);border:1px solid var(--bd);border-radius:10px;padding:11px 16px;font-size:12px;text-align:center;animation:toastIn .2s ease}
-.toast.ok{border-color:rgba(0,255,157,.3);color:var(--a)}.toast.err{border-color:rgba(224,108,117,.3);color:var(--e)}
-@keyframes toastIn{from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:none}}
-
-::-webkit-scrollbar{width:3px}
-::-webkit-scrollbar-thumb{background:var(--bd);border-radius:2px}
+/* ── Animations ── */
+@keyframes slideInR{from{transform:translateX(100%)}to{transform:translateX(0)}}
+@keyframes slideOutR{from{transform:translateX(0)}to{transform:translateX(100%)}}
 </style>
 </head>
 <body>
+<div id="app">
 
-<!-- TOPBAR -->
-<div class="topbar" id="topbar">
-  <button class="topbar-back" id="topbar-back" onclick="closeDevice()">‹</button>
-  <span class="topbar-title" id="topbar-title">TOVSA RC</span>
-  <span class="topbar-id" id="my-id-badge" onclick="copyMyId()"></span>
-  <span class="dot" id="conn-dot"></span>
-</div>
+  <!-- Topbar -->
+  <div id="topbar">
+    <button id="btn-back" onclick="closeDevice()" style="display:none;background:none;border:none;color:var(--mu);font-size:20px;cursor:pointer;padding:0;line-height:1">‹</button>
+    <div id="topbar-title">TOVSA RC</div>
+    <div class="dot" id="conn-dot"></div>
+    <span id="my-id-badge" style="display:none;font-size:9px;color:var(--mu);max-width:100px;overflow:hidden;text-overflow:ellipsis;cursor:pointer" onclick="copyMyId()"></span>
+  </div>
 
-<!-- ══ SCREEN: SETTINGS ══ -->
-<div class="scr on" id="s-settings">
-  <div class="section-scroll">
-    <div class="setup-logo">
-      <div class="setup-logo-text">📡 REMOTE</div>
-      <div class="setup-logo-sub">АЛЬТЕРНАТИВНЫЙ КЛИЕНТ TOVSA</div>
-    </div>
+  <!-- Screens -->
+  <div id="screens">
 
-    <div class="card">
-      <div class="card-title">Мой ID</div>
-      <input id="my-id-inp" placeholder="Генерируется..." readonly style="cursor:default;color:var(--mu);font-size:11px">
-      <button class="btn ghost sm" style="align-self:flex-start" onclick="copyMyId()">📋 Скопировать</button>
-    </div>
-
-    <div class="card">
-      <div class="card-title">Сервер</div>
-      <select id="srv-select" onchange="onSrvChange()">
-        <option value="wss://tovsa-signaling.onrender.com/signal">tovsa-signaling.onrender.com</option>
-        <option value="custom">Другой сервер...</option>
-      </select>
-      <input id="srv-custom" placeholder="wss://..." style="display:none">
-      <button class="btn full" id="btn-connect" onclick="connectToServer()">Подключиться</button>
-    </div>
-
-    <div class="card" style="border-color:rgba(229,192,123,.15)">
-      <div class="card-title" style="color:var(--w)">Сброс ключа</div>
-      <div style="font-size:11px;color:var(--mu);line-height:1.7">Удалить ключ и сгенерировать новый. ID изменится.</div>
-      <button class="btn ghost sm" style="border-color:var(--e);color:var(--e);align-self:flex-start" onclick="resetKey()">🔑 Сбросить</button>
-    </div>
-
-    <div class="card" style="border-color:rgba(0,255,157,.1)">
-      <div class="card-title" style="color:var(--a)">Как добавить устройство?</div>
-      <div style="font-size:11px;color:var(--mu);line-height:1.8">
-        1. Открой приложение на обоих устройствах<br>
-        2. Подключись к одному серверу<br>
-        3. Вкладка <b style="color:var(--tx)">Устройства</b> → <b style="color:var(--tx)">+ Добавить</b><br>
-        4. Покажи QR или введи ID вручную
+    <!-- Settings -->
+    <div class="scr on" id="s-settings">
+      <div class="section-scroll">
+        <div class="card">
+          <div class="card-title">Подключение</div>
+          <select id="srv-select" onchange="onSrvChange()">
+            <option value="wss://tovsa-signaling.onrender.com/signal">Tovsa (Render)</option>
+            <option value="custom">Свой сервер...</option>
+          </select>
+          <input id="srv-custom" placeholder="wss://..." style="display:none">
+          <button class="btn full" id="btn-connect" onclick="connectToServer()">Подключиться</button>
+        </div>
+        <div class="card">
+          <div class="card-title">Мой ID</div>
+          <div class="qr-wrap" id="qr-wrap"></div>
+          <div class="my-id" id="my-id-text" onclick="copyMyId()">—</div>
+        </div>
+        <div class="card">
+          <div class="card-title">Опасная зона</div>
+          <button class="btn danger sm full" onclick="resetKey()">Сбросить ключ (ID изменится)</button>
+        </div>
       </div>
     </div>
-  </div>
-</div>
 
-<!-- ══ SCREEN: DEVICES ══ -->
-<div class="scr" id="s-devices">
-  <div style="padding:10px 14px;border-bottom:1px solid var(--bd);background:var(--sf);display:flex;align-items:center;gap:8px;flex-shrink:0">
-    <span style="font-size:13px;font-weight:700;flex:1">Устройства</span>
-    <button class="btn sm" id="btn-add" onclick="showAddModal()" disabled>+ Добавить</button>
-  </div>
-  <div class="section-scroll" id="device-list" style="gap:8px">
-    <div style="padding:40px;text-align:center;font-size:12px;color:var(--mu);line-height:2">
-      <div style="font-size:40px;opacity:.2;margin-bottom:12px">📱</div>
-      Нет устройств.<br>Нажми «Подключиться» в настройках,<br>затем «+ Добавить».
+    <!-- Agent -->
+    <div class="scr" id="s-agent">
+      <div class="section-scroll">
+        <div class="card" id="agent-card">
+          <div class="card-title" style="display:flex;justify-content:space-between">
+            <span>Агент</span>
+            <span id="agent-status" style="color:var(--mu)">не подключён</span>
+          </div>
+          <div id="agent-install" style="font-size:11px;color:var(--mu);line-height:1.9">
+            Запусти на устройстве:<br>
+            <code style="color:var(--a);cursor:pointer;user-select:all" onclick="copyText(this.textContent)">python3 -c "$(curl -fsSL https://tovsa7.github.io/tovsa-rc/bootstrap.py)"</code>
+            <br><span style="opacity:.6">Termux:</span><br>
+            <code style="color:var(--a);cursor:pointer;user-select:all" onclick="copyText(this.textContent)">pkg install python curl && python3 -c "$(curl -fsSL https://tovsa7.github.io/tovsa-rc/bootstrap.py)"</code>
+          </div>
+          <div id="agent-debug" style="font-size:10px;font-family:monospace;color:var(--mu);background:var(--bg);border:1px solid var(--bd);border-radius:6px;padding:6px 8px;max-height:60px;overflow-y:auto;white-space:pre;cursor:pointer" onclick="copyText(this.textContent)">лог...</div>
+          <div class="row">
+            <input id="agent-url" value="http://localhost:7070" style="flex:1;font-size:11px">
+            <button class="btn sm" id="btn-agent-connect" onclick="agentConnect()">Подключить</button>
+          </div>
+          <div id="agent-info" style="display:none;font-size:11px;color:var(--mu);line-height:1.8"></div>
+          <div id="agent-term" style="display:none;flex-direction:column;gap:8px">
+            <div id="agent-cwd" style="font-size:10px;color:var(--a);background:var(--bg);border:1px solid var(--bd);border-radius:6px;padding:4px 8px;cursor:pointer" onclick="agentCd('..')">📁 /</div>
+            <div id="agent-ls"></div>
+            <div class="row">
+              <input id="agent-cmd" placeholder="команда..." style="flex:1;font-size:11px" onkeydown="if(event.key==='Enter')agentRun()">
+              <button class="btn sm" onclick="agentRun()">▶</button>
+            </div>
+            <div id="agent-output"></div>
+          </div>
+        </div>
+      </div>
     </div>
-  </div>
-</div>
 
-<!-- ══ DEVICE SCREEN (full-screen, own z-layer) ══ -->
+    <!-- Devices -->
+    <div class="scr" id="s-devices">
+      <div id="device-list" style="flex:1;overflow-y:auto"></div>
+      <div style="padding:12px 16px;padding-bottom:calc(12px + env(safe-area-inset-bottom,12px));border-top:1px solid var(--bd);background:var(--sf)">
+        <button class="btn full" id="btn-add" onclick="showAddModal()" disabled>+ Добавить устройство</button>
+      </div>
+    </div>
+
+    <!-- Log -->
+    <div class="scr" id="s-log">
+      <div style="display:flex;align-items:center;padding:8px 12px;background:var(--sf);border-bottom:1px solid var(--bd);flex-shrink:0">
+        <span style="flex:1;font-size:10px;font-weight:700;color:var(--mu);letter-spacing:1px">ЛОГ</span>
+        <button onclick="copyLog()" style="background:none;border:none;font-size:11px;color:var(--mu);cursor:pointer;padding:4px 8px;font-family:inherit">📋</button>
+        <button onclick="clearLog()" style="background:none;border:none;font-size:11px;color:var(--mu);cursor:pointer;padding:4px 8px;font-family:inherit">🗑</button>
+      </div>
+      <div id="r-log"><span style="opacity:.4">пусто</span></div>
+    </div>
+
+  </div><!-- /screens -->
+
+  <!-- Tabbar -->
+  <div id="tabbar">
+    <div id="tab-pill"></div>
+    <button class="tab act" id="tab-settings" onclick="goTab('settings')"><div class="ti">⚙️</div>НАСТРОЙКИ</button>
+    <button class="tab" id="tab-agent"    onclick="goTab('agent')"><div class="ti">⚡</div>АГЕНТ</button>
+    <button class="tab" id="tab-devices"  onclick="goTab('devices')">
+      <div style="position:relative;display:inline-block">
+        <div class="ti">📱</div>
+        <span class="badge" id="devices-badge" style="display:none"></span>
+      </div>
+      УСТРОЙСТВА
+    </button>
+    <button class="tab" id="tab-log" onclick="goTab('log')"><div class="ti">📋</div>ЛОГ</button>
+  </div>
+
+</div><!-- /app -->
+
+<!-- Device screen (overlay) -->
 <div id="s-device">
-  <!-- Header -->
-  <div class="device-header">
-    <div class="device-header-info">
-      <div class="device-header-name" id="dev-name">—</div>
-      <div class="device-header-sub" id="dev-sub">не подключено</div>
+  <div class="dev-header">
+    <button onclick="closeDevice()" style="background:none;border:none;color:var(--mu);font-size:22px;cursor:pointer;padding:0;line-height:1;flex-shrink:0">‹</button>
+    <div class="dev-header-info">
+      <div class="dev-name" id="dev-name">—</div>
+      <div class="dev-sub" id="dev-sub">не подключено</div>
     </div>
     <span class="rtc-badge" id="dev-rtc-badge">нет RTC</span>
     <button class="btn sm" id="dev-rtc-btn" onclick="devStartRtc()">🔗 RTC</button>
   </div>
-
-  <!-- Inner tabs -->
-  <div class="inner-tabbar">
-    <button class="inner-tab act" id="itab-screen"   onclick="switchInnerTab('screen')">📺 Экран</button>
-    <button class="inner-tab"     id="itab-log"      onclick="switchInnerTab('log')">📋 Лог</button>
-  </div>
-
-  <!-- ── CHAT panel ── -->
-  <div class="inner-panel" id="ipanel-chat" style="display:none!important">
-    <div style="padding:3px 12px;background:var(--sf);border-bottom:1px solid var(--bd);display:flex;justify-content:flex-end;flex-shrink:0"><button onclick="clearChatHistory()" style="background:none;border:none;font-size:10px;color:var(--mu);cursor:pointer;padding:3px 8px;font-family:inherit">🗑 История</button></div>
-    <div class="msgs" id="msgs"></div>
-    <div class="iarea">
-      <textarea id="msg-inp" placeholder="Сообщение..." onkeydown="onMsgKey(event)" oninput="autoResize(this)" rows="1"></textarea>
-      <button class="send-btn" onclick="sendMsg()">➤</button>
-    </div>
-  </div>
-
-  <!-- ── LOG panel ── -->
-  <div class="inner-panel" id="ipanel-log">
-    <div style="display:flex;align-items:center;gap:8px;padding:6px 10px;background:var(--sf);border-bottom:1px solid var(--bd);flex-shrink:0">
-      <span style="font-size:10px;color:var(--mu);flex:1">Лог устройства</span>
-      <button onclick="copyLog()" style="background:none;border:none;font-size:10px;color:var(--mu);cursor:pointer;padding:3px 8px;font-family:inherit">📋 копировать</button>
-    </div>
-    <div class="r-log" id="r-log" style="flex:1;overflow-y:auto;padding:8px 10px;font-size:11px;font-family:monospace;line-height:1.8"><span style="opacity:.4">пусто</span></div>
-  </div>
-
-  <!-- ── FILES panel ── -->
-  <div class="inner-panel" id="ipanel-files" style="display:none!important">
-    <!-- My folder (host mode) -->
-    <div id="fm-my" style="display:flex;flex-direction:column;height:100%;overflow:hidden">
-      <!-- Toggle: my folder vs remote -->
-      <div style="display:flex;border-bottom:1px solid var(--bd);flex-shrink:0;background:var(--sf)">
-        <button id="fm-toggle-my" onclick="fmSwitch('my')" style="flex:1;padding:8px;font-family:inherit;font-size:11px;font-weight:700;border:none;background:var(--ad);color:var(--a);border-bottom:2px solid var(--a);cursor:pointer">📁 Моя папка</button>
-        <button id="fm-toggle-remote" onclick="fmSwitch('remote')" style="flex:1;padding:8px;font-family:inherit;font-size:11px;font-weight:700;border:none;background:transparent;color:var(--mu);border-bottom:2px solid transparent;cursor:pointer">🖥 Устройство</button>
-      </div>
-
-      <!-- My folder view -->
-      <div id="fm-local" style="display:flex;flex-direction:column;flex:1;min-height:0;overflow:hidden">
-        <div id="fm-no-folder" style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:32px;text-align:center">
-          <div style="font-size:44px;opacity:.2">📁</div>
-          <div style="font-size:13px;font-weight:700;color:var(--mu)">Папка не выбрана</div>
-          <div style="font-size:11px;color:var(--mu);line-height:1.7;opacity:.7">Выбери папку — другое устройство сможет управлять файлами</div>
-          <button class="btn" onclick="fsPickFolder()" style="max-width:220px">📁 Открыть папку</button>
-          <button class="btn ghost" onclick="fsRestoreFolder()" id="btn-restore-folder" style="max-width:220px;display:none">🔓 Восстановить</button>
-        </div>
-        <div id="fm-host-open" style="display:none;flex-direction:column;flex:1;min-height:0;overflow:hidden">
-          <div class="fm-bar">
-            <span class="host-badge">📁 МОЯ</span>
-            <span class="fm-path" id="fm-host-path">/</span>
-            <button class="btn ghost sm" onclick="fsPickFolder()">Сменить</button>
-          </div>
-          <div class="fm-list" id="fm-host-list"></div>
-          <div class="fm-actions">
-            <button class="btn sm" onclick="fsMkdir()">📂 Папка</button>
-            <button class="btn sm" onclick="fsNewFile()">📄 Файл</button>
-            <button class="btn ghost sm" onclick="fsGoUp()" id="btn-go-up" disabled>↑ Назад</button>
-          </div>
-          <div class="xfer-bar" id="host-xfer-bar">
-            <div class="xfer-info"><span id="host-xfer-name"></span><span id="host-xfer-pct">0%</span></div>
-            <div class="xfer-prog"><div class="xfer-fill" id="host-xfer-fill"></div></div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Remote folder view -->
-      <div id="fm-remote" style="display:none;flex-direction:column;flex:1;min-height:0;overflow:hidden">
-        <div class="fm-bar">
-          <span class="host-badge" style="background:rgba(0,217,255,.08);border-color:rgba(0,217,255,.25);color:var(--a)">🖥 УДАЛЁННО</span>
-          <span class="fm-path" id="fm-ctrl-path">/</span>
-          <button class="btn sm" onclick="fsCtrlRefresh()">↻</button>
-        </div>
-        <div id="fm-ctrl-no-rtc" style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:32px;text-align:center">
-          <div style="font-size:40px;opacity:.2">🔗</div>
-          <div style="font-size:13px;font-weight:700;color:var(--mu)">Нужен RTC</div>
-          <div style="font-size:11px;color:var(--mu);opacity:.7">Подключи RTC чтобы видеть файлы устройства</div>
-          <button class="btn" onclick="devStartRtc();fmSwitch('remote')" style="max-width:220px">🔗 Подключить RTC</button>
-        </div>
-        <div id="fm-ctrl-open" style="display:none;flex-direction:column;flex:1;min-height:0;overflow:hidden">
-          <div class="fm-list" id="fm-ctrl-list"><div class="fm-empty">Загрузка...</div></div>
-          <div class="fm-actions">
-            <button class="btn sm" onclick="fsCtrlMkdir()">📂 Папка</button>
-            <button class="btn sm" onclick="fsCtrlNewFile()">📄 Файл</button>
-            <button class="btn sm" onclick="$('fs-send-input').click()" style="background:var(--w);color:#000">⬆ Отправить</button>
-            <button class="btn ghost sm" onclick="fsCtrlGoUp()" id="btn-ctrl-up" disabled>↑ Назад</button>
-          </div>
-          <div class="xfer-bar" id="ctrl-xfer-bar">
-            <div class="xfer-info"><span id="ctrl-xfer-name"></span><span id="ctrl-xfer-pct">0%</span></div>
-            <div class="xfer-prog"><div class="xfer-fill" id="ctrl-xfer-fill"></div></div>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- ── SCREEN panel ── -->
-  <div class="inner-panel" id="ipanel-screen">
-
-    <!-- Тулбар -->
-    <div style="display:flex;align-items:center;gap:6px;padding:6px 10px;background:var(--sf);border-bottom:1px solid var(--bd);flex-shrink:0">
-      <span id="screen-fps" style="font-size:10px;color:var(--mu);min-width:36px">— fps</span>
+  <div id="screen-panel">
+    <div id="screen-toolbar">
+      <span id="screen-fps" style="font-size:10px;color:var(--mu);min-width:42px">— fps</span>
       <span id="screen-res" style="font-size:10px;color:var(--mu);flex:1"></span>
-      <button class="btn sm ghost" onclick="screenSetQuality(40)">Lo</button>
-      <button class="btn sm ghost" onclick="screenSetQuality(65)">Mid</button>
-      <button class="btn sm ghost" onclick="screenSetQuality(90)">Hi</button>
-      <button class="btn sm" id="screen-toggle-btn" onclick="screenToggle()" style="min-width:64px">▶ Старт</button>
+      <button class="btn sm ghost" onclick="screenSetQ(40)">Lo</button>
+      <button class="btn sm ghost" onclick="screenSetQ(65)">Mid</button>
+      <button class="btn sm ghost" onclick="screenSetQ(90)">Hi</button>
+      <button class="btn sm" id="screen-btn" onclick="screenToggle()">▶ Старт</button>
     </div>
-
-    <!-- Кнопки Android -->
-    <div style="display:flex;gap:6px;padding:5px 10px;background:var(--sf);border-bottom:1px solid var(--bd);flex-shrink:0">
-      <button class="btn sm ghost" style="flex:1" onclick="screenKey(3)"   title="Home">⌂</button>
-      <button class="btn sm ghost" style="flex:1" onclick="screenKey(4)"   title="Back">←</button>
-      <button class="btn sm ghost" style="flex:1" onclick="screenKey(187)" title="Recent">⧉</button>
-      <button class="btn sm ghost" style="flex:1" onclick="screenKey(24)"  title="Vol+">🔊</button>
-      <button class="btn sm ghost" style="flex:1" onclick="screenKey(25)"  title="Vol−">🔉</button>
-      <button class="btn sm ghost" style="flex:1" onclick="screenKey(26)"  title="Power">⏻</button>
+    <div id="screen-keys">
+      <button class="btn sm ghost" style="flex:1" onclick="screenKey(3)">⌂</button>
+      <button class="btn sm ghost" style="flex:1" onclick="screenKey(4)">←</button>
+      <button class="btn sm ghost" style="flex:1" onclick="screenKey(187)">⧉</button>
+      <button class="btn sm ghost" style="flex:1" onclick="screenKey(24)">🔊</button>
+      <button class="btn sm ghost" style="flex:1" onclick="screenKey(25)">🔉</button>
+      <button class="btn sm ghost" style="flex:1" onclick="screenKey(26)">⏻</button>
     </div>
-
-    <!-- Превью -->
-    <div style="flex:1;min-height:0;position:relative;overflow:hidden;background:#000;display:flex;align-items:center;justify-content:center">
-      <img id="screen-img"
-           style="max-width:100%;max-height:100%;object-fit:contain;display:block;touch-action:none;cursor:crosshair"
-           draggable="false"
-           onpointerdown="screenPointerDown(event)"
-           onpointerup="screenPointerUp(event)"
-           onpointermove="screenPointerMove(event)">
-      <div id="screen-tap-flash"
-           style="position:absolute;border-radius:50%;background:rgba(0,217,255,.45);width:28px;height:28px;pointer-events:none;display:none;transform:translate(-50%,-50%);transition:opacity .3s"></div>
+    <div id="screen-img-wrap">
+      <img id="screen-img" draggable="false"
+           onpointerdown="scrPtrDown(event)"
+           onpointerup="scrPtrUp(event)"
+           onpointermove="scrPtrMove(event)">
+      <div id="screen-tap-flash"></div>
     </div>
-
-    <!-- Ввод текста -->
-    <div style="display:flex;gap:6px;padding:6px 10px;background:var(--sf);border-top:1px solid var(--bd);flex-shrink:0">
-      <input id="screen-text-inp" placeholder="Текст для ввода..." style="flex:1;font-size:12px"
+    <div id="screen-text-row">
+      <input id="screen-text" placeholder="Текст для ввода..." style="flex:1;font-size:12px"
              onkeydown="if(event.key==='Enter'){screenSendText();event.preventDefault()}">
-      <button class="btn sm" onclick="screenSendText()">⌨ Ввод</button>
+      <button class="btn sm" onclick="screenSendText()">⌨</button>
     </div>
-
   </div>
-
 </div>
 
-  <div class="editor-bar">
-    <button style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--mu);padding:0" onclick="closeEditor()">✕</button>
-    <span class="editor-filename" id="editor-fname">—</span>
-    <button class="btn sm" onclick="editorSave()" id="btn-editor-save">💾 Сохранить</button>
-  </div>
-  <textarea id="editor-ta"></textarea>
-</div>
-
-<!-- ADD DEVICE MODAL -->
-<div class="modal-bg" id="add-modal" onclick="closeAddModal(event)">
-  <div class="modal-sheet" onclick="event.stopPropagation()">
+<!-- Add device modal -->
+<div class="modal-bg" id="add-modal" onclick="if(event.target===this)closeAddModal()">
+  <div class="modal-sheet">
     <div class="modal-title">Добавить устройство</div>
-    <div class="modal-tabs">
-      <button class="modal-tab act" id="mt-qr"     onclick="switchModalTab('qr')">QR-код</button>
-      <button class="modal-tab"     id="mt-manual" onclick="switchModalTab('manual')">Вручную</button>
-      <button class="modal-tab"     id="mt-scan"   onclick="switchModalTab('scan')">Ввести ID</button>
-    </div>
-    <div class="modal-tab-panel on" id="mtp-qr">
-      <div style="font-size:11px;color:var(--mu);text-align:center;line-height:1.6">Покажи QR второму устройству — оно сканирует и добавит тебя</div>
-      <div class="qr-wrap" id="qr-wrap"></div>
-      <div class="my-id-box" id="qr-id-text" onclick="copyMyId()">—</div>
-    </div>
-    <div class="modal-tab-panel" id="mtp-manual">
-      <input id="add-name" placeholder="Имя устройства">
-      <input id="add-id"   placeholder="ID устройства (tvp-...)">
-      <button class="btn full" onclick="doAddPeer()">Добавить</button>
-    </div>
-    <div class="modal-tab-panel" id="mtp-scan">
-      <div style="font-size:11px;color:var(--mu);text-align:center;line-height:1.6">Попроси второе устройство открыть QR-код и введи его ID</div>
-      <input id="scan-id"   placeholder="Вставь ID устройства...">
-      <input id="scan-name" placeholder="Имя (необязательно)">
-      <button class="btn full" onclick="doScanAdd()">Добавить</button>
-    </div>
+    <div class="qr-wrap" id="add-qr-wrap" style="margin:-4px 0"></div>
+    <div class="my-id" id="add-my-id" onclick="copyMyId()">—</div>
+    <div style="font-size:11px;color:var(--mu);text-align:center">или введи ID вручную:</div>
+    <input id="add-name" placeholder="Имя устройства">
+    <input id="add-id" placeholder="tvp-...">
+    <button class="btn full" onclick="doAddPeer()">Добавить</button>
     <button class="btn ghost full" onclick="closeAddModal()">Отмена</button>
   </div>
-</div>
-
-<div class="scr" id="s-agent" style="flex-direction:column;overflow-y:auto">
-  <div style="padding:16px 16px 4px;font-size:11px;font-weight:700;letter-spacing:1.5px;color:var(--mu);text-transform:uppercase">Агент</div>
-  <div style="padding:0 12px 80px">
-    <div class="r-card" id="agent-card">
-        <div class="r-card-title" style="justify-content:space-between">
-          <span>⚡ Агент</span>
-          <span id="agent-status" style="font-size:10px;color:var(--mu)">не подключён</span>
-        </div>
-        <!-- Install hint (shown when not connected) -->
-        <div id="agent-install-hint" style="background:var(--bg);border:1px solid var(--bd);border-radius:8px;padding:10px 12px;font-size:11px;color:var(--mu);line-height:1.9">
-          Запусти на устройстве:<br>
-          <code style="color:var(--a);user-select:all;cursor:pointer" onclick="copyText(this.textContent,'Скопировано')" title="Нажми чтобы скопировать">python3 -c "$(curl -fsSL https://tovsa7.github.io/tovsa-rc/bootstrap.py)"</code>
-          <br><span style="opacity:.6">Windows PowerShell:</span><br>
-          <code style="color:var(--a);user-select:all;cursor:pointer;font-size:10px" onclick="copyText(this.textContent,'Скопировано')" title="Нажми чтобы скопировать">python -c (Invoke-WebRequest https://tovsa7.github.io/tovsa-rc/bootstrap.py).Content</code>
-          <br><span style="opacity:.6">Android (Termux):</span><br>
-          <code style="color:var(--a);user-select:all;cursor:pointer" onclick="copyText(this.textContent,'Скопировано')" title="Нажми чтобы скопировать">pkg install python curl && python3 -c "$(curl -fsSL https://tovsa7.github.io/tovsa-rc/bootstrap.py)"</code>
-          <br><span style="opacity:.5;font-size:10px">Для доступа к файлам телефона: <code style="color:var(--w)" onclick="copyText('termux-setup-storage','Скопировано')">termux-setup-storage</code></span>
-        </div>
-        <div class="row" style="align-items:center">
-          <div id="agent-debug-log" onclick="navigator.clipboard?.writeText(this.textContent).then(()=>toast('Скопировано','ok'))" style="display:block;font-size:10px;font-family:monospace;color:var(--mu);background:var(--bg);border:1px solid var(--bd);border-radius:6px;padding:6px 8px;max-height:80px;overflow-y:auto;white-space:pre;cursor:pointer;margin-bottom:6px;min-height:24px" title="Нажми чтобы скопировать">лог...</div>
-          <input id="agent-url" placeholder="http://localhost:7070" value="http://localhost:7070" style="flex:1;font-size:11px">
-          <button class="btn sm" onclick="agentConnect()" id="agent-connect-btn">Подключить</button>
-        </div>
-        <div id="agent-info" style="display:none;font-size:11px;color:var(--mu);background:var(--bg);border:1px solid var(--bd);border-radius:8px;padding:8px 10px;line-height:1.8"></div>
-        <!-- Terminal -->
-        <div id="agent-term" style="display:none;flex-direction:column;gap:6px">
-          <div id="agent-cwd" style="font-size:10px;color:var(--a);background:var(--bg);border:1px solid var(--bd);border-radius:6px;padding:4px 8px;cursor:pointer" onclick="agentCd('..') " title="Нажми чтобы перейти выше">📁 /</div>
-          <div id="agent-ls" style="background:var(--bg);border:1px solid var(--bd);border-radius:8px;overflow:hidden;max-height:180px;overflow-y:auto"></div>
-          <div class="row">
-            <input id="agent-cmd" placeholder="команда..." style="flex:1;font-size:11px" onkeydown="if(event.key==='Enter')agentRun()">
-            <button class="btn sm" onclick="agentRun()">▶</button>
-          </div>
-          <div id="agent-output" style="display:none;background:var(--bg);border:1px solid var(--bd);border-radius:8px;padding:8px 10px;font-size:10px;line-height:1.7;max-height:160px;overflow-y:auto;white-space:pre-wrap;word-break:break-all"></div>
-        </div>
-      </div>
-  </div>
-</div>
-
-<!-- TABBAR -->
-<div class="tabbar" id="tabbar">
-  <div id="tab-pill"></div>
-  <button class="tab act" id="tab-settings" onclick="goTab('settings')">
-    <div class="tab-icon">⚙️</div>
-    <div class="tab-label">НАСТРОЙКИ</div>
-  </button>
-  <button class="tab" id="tab-agent" onclick="goTab('agent')">
-    <div class="tab-icon">⚡</div>
-    <div class="tab-label">АГЕНТ</div>
-  </button>
-  <button class="tab" id="tab-devices" onclick="goTab('devices')">
-    <div class="tab-icon-wrap">
-      <div class="tab-icon">📱</div>
-      <div class="tab-badge" id="devices-badge"></div>
-    </div>
-    <div class="tab-label">УСТРОЙСТВА</div>
-  </button>
 </div>
 
 <div id="toasts"></div>
@@ -641,112 +369,69 @@ select{cursor:pointer;appearance:none;
 <script>
 'use strict';
 
-// ── State ─────────────────────────────────────────────
+// ════════════════════════════════════════════
+// STATE
+// ════════════════════════════════════════════
 let ws = null, myId = '', isOpen = false;
+let myPrivKey = null, myPubRaw = null; // Ed25519
+const peers = {};   // id → {id,name,emoji,online}
+const rtcs  = {};   // id → {pc,dc,state,aesKey,pending:[]}
+let currentDevice = null;
 
-// ── Leader Election ───────────────────────────────────
-const LEADER_CH='tvrc_leader', LEADER_TTL=800, LEADER_PING=600;
-const _tabId=Date.now()+Math.random();
-let _isLeader=false,_leaderChannel=null,_leaderPingTimer=null,_leaderDeadTimer=null;
+// Agent
+let _agentUrl = 'http://localhost:7070';
+let _agentCwd = '';
 
-function initLeaderElection(){
-  if(!window.BroadcastChannel){_becomeLeader();return;}
-  _leaderChannel=new BroadcastChannel(LEADER_CH);
-  _leaderChannel.onmessage=e=>{
-    if(e.data.tabId===_tabId) return;
-    const {type}=e.data;
-    if(type==='ping'){
-      clearTimeout(_leaderDeadTimer);
-      if(!_isLeader){_syncLeaderState(e.data);_leaderDeadTimer=setTimeout(_becomeLeader,LEADER_TTL);}
-    } else if(type==='claim'){
-      if(_isLeader&&e.data.tabId<_tabId)_resignLeader();
-    } else if(type==='close'){
-      if(!_isLeader){clearTimeout(_leaderDeadTimer);_becomeLeader();}
-    } else if(type==='status'){
-      if(!_isLeader)_syncLeaderState(e.data);
-    }
-  };
-  _leaderDeadTimer=setTimeout(_becomeLeader,LEADER_TTL);
-}
-function _becomeLeader(){
-  clearTimeout(_leaderDeadTimer);_leaderDeadTimer=null;_isLeader=true;
-  _broadcastLeader('claim');
-  _leaderPingTimer=setInterval(()=>_broadcastLeader('ping'),LEADER_PING);
-  _updateLeaderIndicator();
-  const savedSrv=localStorage.getItem('tvrc_srv');
-  if(savedSrv&&!isOpen)connectToServer();
-}
-function _resignLeader(){
-  _isLeader=false;clearInterval(_leaderPingTimer);_leaderPingTimer=null;
-  _updateLeaderIndicator();
-  if(_leaderChannel)_leaderChannel.postMessage({type:'close',tabId:_tabId});
-  _leaderDeadTimer=setTimeout(_becomeLeader,LEADER_TTL);
-}
-function _broadcastLeader(type){
-  if(!_leaderChannel)return;
-  _leaderChannel.postMessage({type,tabId:_tabId,isOpen,myId});
-}
-function _syncLeaderState(data){
-  if(data.isOpen===undefined)return;
-  const was=isOpen; isOpen=!!data.isOpen;
-  if(isOpen!==was){
-    setDot(isOpen?'on':'');
-    if(isOpen){$('my-id-badge').style.display='inline-block';$('btn-add').disabled=false;$('btn-connect').textContent='Переподключить';}
-    else{setDot('');$('btn-add').disabled=true;}
-  }
-}
-function _updateLeaderIndicator(){
-  let ind=document.getElementById('leader-ind');
-  if(!ind){ind=document.createElement('span');ind.id='leader-ind';ind.title='Эта вкладка управляет соединением';ind.style.cssText='font-size:11px;color:var(--a);margin-right:4px;transition:opacity .3s';$('conn-dot')?.before(ind);}
-  ind.textContent=_isLeader?'👑':'';ind.style.opacity=_isLeader?'1':'0';
-}
-window.addEventListener('beforeunload',()=>{if(_isLeader&&_leaderChannel)_leaderChannel.postMessage({type:'close',tabId:_tabId});});
-let currentDevice = null;   // peerId of open device screen
-const peers = {};           // id → { id, name, emoji, online }
-const rtcs  = {};           // id → { pc, dc, state, pending }
-const _dbgBuf = [];
+// Screen
+let _scrRunning = false, _scrQ = 65;
+let _scrW = 1080, _scrH = 1920;
+let _scrPtrDown = false, _scrX0 = 0, _scrY0 = 0, _scrT0 = 0;
+let _scrDcRunning = false, _scrDcTo = null, _scrDcTimer = null;
+let _scrFpsCount = 0, _scrFpsTs = 0;
 
-// ── Utils ─────────────────────────────────────────────
-function $(id){ return document.getElementById(id); }
+// ════════════════════════════════════════════
+// UTILS
+// ════════════════════════════════════════════
+const $ = id => document.getElementById(id);
 
-function toast(msg, type='', dur=2600){
+function toast(msg, type='', dur=2800){
   const c=$('toasts'), el=document.createElement('div');
-  el.className='toast'+(type?' '+type:''); el.textContent=msg;
+  el.className='toast'+(type?' '+type:'');
+  el.textContent=msg;
   c.appendChild(el);
-  setTimeout(()=>{ el.style.opacity='0'; el.style.transition='opacity .25s'; setTimeout(()=>el.remove(),250); }, dur);
+  setTimeout(()=>{el.style.opacity='0';el.style.transition='opacity .25s';setTimeout(()=>el.remove(),250);},dur);
 }
 
-function esc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
-
-function fmtSize(n){ if(n<1024)return n+'B'; if(n<1048576)return (n/1024).toFixed(1)+'KB'; return (n/1048576).toFixed(1)+'MB'; }
-function fmtDate(ts){ return new Date(ts).toLocaleDateString('ru',{day:'numeric',month:'short'}); }
-
-function dbg(msg, type=''){
-  const t=new Date().toLocaleTimeString('ru',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
-  _dbgBuf.push({t,msg,type});
-  if(_dbgBuf.length>300) _dbgBuf.shift();
+function rlog(msg, cls=''){
+  const el=$('r-log');
+  if(!el) return;
+  if(el.children.length===1&&el.children[0].tagName==='SPAN') el.innerHTML='';
+  const d=document.createElement('div');
+  d.className=cls?'l-'+cls:'';
+  d.textContent='['+tsNow()+'] '+msg;
+  el.appendChild(d);
+  el.scrollTop=el.scrollHeight;
 }
 
-function copyLog(){
-  const logEl=$('r-log');
-  const lines=Array.from(logEl.children).map(c=>c.textContent).join('\n');
-  const all=_dbgBuf.map(({t,msg})=>`[${t}] ${msg}`).join('\n')+(lines?'\n\n--- CMD LOG ---\n'+lines:'');
-  navigator.clipboard.writeText(all).then(()=>toast('Лог скопирован','ok')).catch(()=>toast('Ошибка'));
+function alog(msg){
+  const el=$('agent-debug');
+  if(!el) return;
+  const ts=new Date().toLocaleTimeString('ru',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+  el.textContent=ts+' '+msg+'\n'+el.textContent.slice(0,600);
 }
-
-function autoResize(el){ el.style.height='auto'; el.style.height=Math.min(el.scrollHeight,110)+'px'; }
 
 function tsNow(){ return new Date().toLocaleTimeString('ru',{hour:'2-digit',minute:'2-digit'}); }
+function esc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function fmtSz(n){ return n<1024?n+'B':n<1048576?(n/1024).toFixed(1)+'KB':(n/1048576).toFixed(1)+'MB'; }
+function copyText(t){ navigator.clipboard.writeText(t).then(()=>toast('Скопировано','ok')).catch(()=>{}); }
+function copyMyId(){ copyText(myId); }
 
-// ── Tabs ──────────────────────────────────────────────
 function goTab(name){
-  ['settings','agent','devices'].forEach(t=>{
+  ['settings','agent','devices','log'].forEach(t=>{
     $('tab-'+t).classList.toggle('act',t===name);
     $('s-'+t).classList.toggle('on',t===name);
   });
   movePill('tab-'+name);
-  // Hide device screen when switching main tabs
-  // (device screen is separate layer, stays open)
 }
 
 function movePill(tabId){
@@ -757,563 +442,297 @@ function movePill(tabId){
   pill.style.width=tr.width+'px';
 }
 
-// ── Device screen ─────────────────────────────────────
-function openDevice(id){
-  currentDevice = id;
-  const p = peers[id];
-  // Topbar
-  $('topbar-back').style.display='block';
-  $('topbar-title').textContent = p?.name || id.slice(0,16);
-  $('my-id-badge').style.display='none';
-  $('conn-dot').style.display='none';
-  // Hide tabbar and background screens
-  $('tabbar').style.display='none';
-  document.querySelectorAll('.scr.on').forEach(el => el.style.display='none');
-  // Show device screen
-  loadChatHistory(id).catch(()=>{});
-  $('s-device').style.animation='slideInFromRight .25s cubic-bezier(.4,0,.2,1) both';
-  $('s-device').classList.add('on');
-  updateDevRtcBadge(id);
-  // Render chat
-  renderDeviceChat(id);
-  switchInnerTab('screen');
+function copyLog(){
+  const lines=Array.from($('r-log').children).map(c=>c.textContent).join('\n');
+  copyText(lines);
+}
+function clearLog(){
+  $('r-log').innerHTML='<span style="opacity:.4">пусто</span>';
 }
 
-function closeDevice(){
-  $('s-device').style.animation='slideOutToRight .22s cubic-bezier(.4,0,.2,1) both';
-  setTimeout(()=>{ $('s-device').classList.remove('on'); $('s-device').style.animation=''; },220);
-  document.querySelectorAll('.scr.on').forEach(el => el.style.display='');
-  $('tabbar').style.display='flex';
-  $('topbar-back').style.display='none';
-  $('topbar-title').textContent='TOVSA RC';
-  $('my-id-badge').style.display=isOpen?'inline-block':'none';
-  $('conn-dot').style.display='';
-  currentDevice=null;
-  // Re-init pill
-  requestAnimationFrame(()=>{ const a=document.querySelector('.tab.act'); if(a) movePill(a.id); });
-}
-
-function switchInnerTab(name){
-  const all=['screen','log'];
-  const cur=all.find(t=>$('ipanel-'+t)?.classList.contains('on'));
-  const dir=all.indexOf(name)>all.indexOf(cur)?'Right':'Left';
-  all.forEach(t=>{
-    $('itab-'+t)?.classList.toggle('act',t===name);
-    const panel=$('ipanel-'+t); if(!panel)return;
-    if(t===name){panel.style.animation='slideIn'+dir+' .2s cubic-bezier(.4,0,.2,1) both';panel.classList.add('on');}else{panel.classList.remove('on');panel.style.animation='';}
-  });
-  if(name==='files') fmCheckRemoteState();
-}
-
-function renderDeviceChat(id){
-  // msgs are global — clear and add system msg
-  // (in a real app we'd have per-device history)
-}
-
-function devStartRtc(){
-  if(!currentDevice) return;
-  if(!isOpen){ toast('Нет соединения с сервером','err'); return; }
-  if(rtcs[currentDevice]?.state==='open'){ toast('Уже подключено'); return; }
-  createOffer(currentDevice);
-}
-
-function updateDevRtcBadge(id){
-  const badge=$('dev-rtc-badge'), btn=$('dev-rtc-btn');
-  const rtc=rtcs[id||currentDevice];
-  const s=rtc?.state||'';
-  if(s==='open'){
-    badge.className='rtc-badge open'; badge.textContent='RTC ●';
-    if(btn){ btn.textContent='✓ RTC'; btn.disabled=true; }
-    $('rtc-prompt').style.display='none';
-  } else if(s==='connecting'){
-    badge.className='rtc-badge connecting'; badge.textContent='RTC...';
-    if(btn){ btn.textContent='⏳...'; btn.disabled=true; }
-    $('rtc-prompt').style.display='flex';
-  } else {
-    badge.className='rtc-badge'; badge.textContent='нет RTC';
-    if(btn){ btn.textContent='🔗 RTC'; btn.disabled=false; }
-    $('rtc-prompt').style.display='flex';
-  }
-  // Also update device list
-  renderDeviceList();
-}
-
-
-// ══════════════════════════════════════════════════════
-// Double Ratchet E2E (X3DH-lite + Signal DR spec)
-// ══════════════════════════════════════════════════════
-const DR_INFO_INIT  = new TextEncoder().encode('tvrc-dr-init-v1');
-const DR_INFO_ROOT  = new TextEncoder().encode('tvrc-dr-root-v1');
-const DR_INFO_MSG   = new TextEncoder().encode('tvrc-dr-msg-v1');
-const DR_INFO_CHAIN = new TextEncoder().encode('tvrc-dr-chain-v1');
-const DR_MAX_SKIP   = 100;
-const MKSKIPPED_TTL = 5*60*1000;
-
-function _drB64u(buf){let s='';for(const b of buf)s+=String.fromCharCode(b);return btoa(s).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');}
-function _drFromB64u(s){return Uint8Array.from(atob(s.replace(/-/g,'+').replace(/_/g,'/')),c=>c.charCodeAt(0));}
-function _drConcat(...aa){const t=aa.reduce((n,a)=>n+a.length,0),o=new Uint8Array(t);let i=0;for(const a of aa){o.set(a,i);i+=a.length;}return o;}
-
-async function _drGenDH(){
-  const kp=await crypto.subtle.generateKey({name:'X25519'},true,['deriveBits']);
-  const pub=new Uint8Array(await crypto.subtle.exportKey('raw',kp.publicKey));
-  const privJwk=await crypto.subtle.exportKey('jwk',kp.privateKey);
-  return {pub,privJwk};
-}
-async function _drDH(privJwk,pubBytes){
-  const priv=await crypto.subtle.importKey('jwk',privJwk,{name:'X25519'},false,['deriveBits']);
-  const pub=await crypto.subtle.importKey('raw',pubBytes,{name:'X25519'},false,[]);
-  return new Uint8Array(await crypto.subtle.deriveBits({name:'X25519',public:pub},priv,256));
-}
-async function _drHkdf1(ikm,salt,info){
-  const k=await crypto.subtle.importKey('raw',ikm,{name:'HKDF'},false,['deriveBits']);
-  return new Uint8Array(await crypto.subtle.deriveBits({name:'HKDF',hash:'SHA-256',salt,info},k,256));
-}
-async function _drHkdf2(ikm,salt,info){
-  const k=await crypto.subtle.importKey('raw',ikm,{name:'HKDF'},false,['deriveBits']);
-  const b=new Uint8Array(await crypto.subtle.deriveBits({name:'HKDF',hash:'SHA-256',salt,info},k,512));
-  return [b.slice(0,32),b.slice(32)];
-}
-async function _drKdfChain(ck){
-  return {mk:await _drHkdf1(ck,new Uint8Array([1]),DR_INFO_MSG), ckNext:await _drHkdf1(ck,new Uint8Array([2]),DR_INFO_CHAIN)};
-}
-async function _drKdfRoot(rk,dh){const [a,b]=await _drHkdf2(dh,rk,DR_INFO_ROOT);return {rkNew:a,ckNew:b};}
-
-async function _drEncryptRaw(mk,pt){
-  const iv=crypto.getRandomValues(new Uint8Array(12));
-  const key=await crypto.subtle.importKey('raw',mk,'AES-GCM',false,['encrypt']);
-  const ct=new Uint8Array(await crypto.subtle.encrypt({name:'AES-GCM',iv},key,new TextEncoder().encode(pt)));
-  return _drB64u(_drConcat(iv,ct));
-}
-async function _drDecryptRaw(mk,b64u){
-  const buf=_drFromB64u(b64u);
-  const key=await crypto.subtle.importKey('raw',mk,'AES-GCM',false,['decrypt']);
-  return new TextDecoder().decode(await crypto.subtle.decrypt({name:'AES-GCM',iv:buf.slice(0,12)},key,buf.slice(12)));
-}
-
-function _drCtx(id){
-  if(!rtcs[id]._dr) rtcs[id]._dr={st:null,ready:false,isInit:false,myEK:null,queue:Promise.resolve(),pending:[],busy:false};
-  return rtcs[id]._dr;
-}
-function _drClear(id){
-  const d=rtcs[id]?._dr;if(!d)return;
-  if(d.st){for(const e of d.st.MKSKIPPED.values())(e.mk||e)?.fill(0);d.st.MKSKIPPED.clear();d.st.CKs?.fill(0);d.st.CKr?.fill(0);d.st.RK?.fill(0);}
-  rtcs[id]._dr={st:null,ready:false,isInit:false,myEK:null,queue:Promise.resolve(),pending:[],busy:false};
-}
-
-async function _drInitSt(d,ms,isInit,myEK,theirEK){
-  const dh=await _drDH(myEK.privJwk,theirEK);
-  const {rkNew:RK,ckNew:CK}=await _drKdfRoot(ms,dh);
-  dh.fill(0);ms.fill(0);
-  d.st={RK,CKs:isInit?CK:null,CKr:isInit?null:CK,DHs:myEK,DHr:theirEK,Ns:0,Nr:0,PN:0,MKSKIPPED:new Map(),ready:true};
-  if(isInit){
-    const nDH=await _drGenDH();
-    const ds=await _drDH(nDH.privJwk,theirEK);
-    const {rkNew:r1,ckNew:c1}=await _drKdfRoot(d.st.RK,ds);
-    ds.fill(0);d.st.RK.fill(0);
-    d.st.RK=r1;d.st.CKs=c1;d.st.DHs=nDH;
-  }
-  d.ready=true;
-  dbg('[DR] ready isInit='+isInit,'ok');
-}
-
-async function _drRatchet(d,newPub){
-  const s=d.st,old={CKr:s.CKr,RK:s.RK};
-  s.PN=s.Ns;s.Ns=0;s.Nr=0;
-  const dh=await _drDH(s.DHs.privJwk,newPub);
-  const {rkNew,ckNew}=await _drKdfRoot(s.RK,dh);
-  dh.fill(0);
-  s.DHs=await _drGenDH();s.DHr=newPub;s.RK=rkNew;s.CKr=ckNew;s.CKs=null;
-  old.CKr?.fill(0);old.RK?.fill(0);
-}
-
-async function _drEnc(d,payload){
-  const s=d.st;
-  if(!s.CKs){
-    const dh=await _drDH(s.DHs.privJwk,s.DHr);
-    const {rkNew,ckNew}=await _drKdfRoot(s.RK,dh);
-    dh.fill(0);s.RK.fill(0);s.RK=rkNew;s.CKs=ckNew;s.Ns=0;
-  }
-  const {mk,ckNext}=await _drKdfChain(s.CKs);s.CKs=ckNext;
-  const msg={_t:'__dr__',n:s.Ns,pn:s.PN};
-  if(s.Ns===0)msg.dh=_drB64u(s.DHs.pub);
-  s.Ns++;
-  msg.ct=await _drEncryptRaw(mk,typeof payload==='string'?payload:JSON.stringify(payload));
-  mk.fill(0);return msg;
-}
-
-async function _drSkip(d,until){
-  const s=d.st;if(!s.CKr)return;
-  if(until-s.Nr>DR_MAX_SKIP)throw new Error('DR skip overflow');
-  const now=Date.now();
-  while(s.Nr<until){const {mk,ckNext}=await _drKdfChain(s.CKr);s.CKr=ckNext;s.MKSKIPPED.set('s:'+s.Nr,{mk,t:now});s.Nr++;}
-}
-
-async function _drDec(d,msg){
-  const s=d.st;
-  const theirPub=msg.dh?_drFromB64u(msg.dh):null;
-  const now=Date.now();
-  for(const [k,e] of s.MKSKIPPED)if(now-e.t>MKSKIPPED_TTL){e.mk.fill(0);s.MKSKIPPED.delete(k);}
-  const sk=(theirPub?_drB64u(theirPub):'s')+':'+msg.n;
-  if(s.MKSKIPPED.has(sk)){const e=s.MKSKIPPED.get(sk);s.MKSKIPPED.delete(sk);const r=await _drDecryptRaw(e.mk,msg.ct);e.mk.fill(0);return r;}
-  if(theirPub&&(!s.CKr||!s.DHr||_drB64u(theirPub)!==_drB64u(s.DHr))){
-    if(s.CKr)await _drSkip(d,msg.pn);
-    await _drRatchet(d,theirPub);
-  }
-  if(s.CKr)await _drSkip(d,msg.n);
-  if(!s.CKr)throw new Error('DR no CKr');
-  const {mk,ckNext}=await _drKdfChain(s.CKr);s.CKr=ckNext;s.Nr++;
-  const r=await _drDecryptRaw(mk,msg.ct);mk.fill(0);return r;
-}
-
-function _drSend(id,payload){
-  const d=_drCtx(id);
-  const fn=async()=>{try{const m=await _drEnc(d,payload);const e=rtcs[id];if(e?.dc?.readyState==='open')e.dc.send(JSON.stringify(m));}catch(e){dbg('[DR] enc err: '+e.message,'err');}};
-  if(d.ready){d.queue=d.queue.then(fn,fn);}else{d.pending.push(fn);}
-}
-async function _drFlush(id){const d=_drCtx(id);for(const fn of d.pending)await fn();d.pending=[];}
-
-async function _drHello(id){
-  const d=_drCtx(id);d.isInit=true;d.myEK=await _drGenDH();
-  return {_t:'__dr_hello__',ek:_drB64u(d.myEK.pub),ik:_drB64u(myPubKeyRaw||new Uint8Array(32)),ikEnc:_myEncKey?_drB64u(_drFromB64u(_myEncKey.publicKeyB64u)):undefined};
-}
-async function _drOnHello(id,msg){
-  const d=_drCtx(id);if(d.busy)return null;d.busy=true;
-  try{
-    const theirEK=_drFromB64u(msg.ek);d.myEK=await _drGenDH();
-    const dh1=await _drDH(d.myEK.privJwk,theirEK);
-    const theirIK=msg.ikEnc?_drFromB64u(msg.ikEnc):null;
-    const dh2=theirIK?await _drDH(d.myEK.privJwk,theirIK):new Uint8Array(32);
-    const dh3=_myEncKey?await _drDH(_myEncKey.privateJwk,theirEK):new Uint8Array(32);
-    const ms=await _drHkdf1(_drConcat(dh1,dh2,dh3),new Uint8Array(32),DR_INFO_INIT);
-    dh1.fill(0);dh2.fill(0);dh3.fill(0);
-    await _drInitSt(d,ms,false,d.myEK,theirEK);
-    await _drFlush(id);
-    return {_t:'__dr_hello_ack__',ek:_drB64u(d.myEK.pub),ik:_drB64u(myPubKeyRaw||new Uint8Array(32)),ikEnc:_myEncKey?_drB64u(_drFromB64u(_myEncKey.publicKeyB64u)):undefined};
-  }finally{d.busy=false;}
-}
-async function _drOnAck(id,msg){
-  const d=_drCtx(id);if(!d.myEK)throw new Error('DR no EK');
-  const theirEK=_drFromB64u(msg.ek);
-  const dh1=await _drDH(d.myEK.privJwk,theirEK);
-  const dh2=_myEncKey?await _drDH(_myEncKey.privateJwk,theirEK):new Uint8Array(32);
-  const theirIK=msg.ikEnc?_drFromB64u(msg.ikEnc):null;
-  const dh3=theirIK?await _drDH(d.myEK.privJwk,theirIK):new Uint8Array(32);
-  const ms=await _drHkdf1(_drConcat(dh1,dh2,dh3),new Uint8Array(32),DR_INFO_INIT);
-  dh1.fill(0);dh2.fill(0);dh3.fill(0);
-  await _drInitSt(d,ms,true,d.myEK,theirEK);
-  d.myEK=null;
-  await _drFlush(id);
-}
-
-function _updateDrBadge(id){
-  if(currentDevice!==id)return;
-  const badge=$('dr-badge');if(!badge)return;
-  const ready=rtcs[id]?._dr?.ready;
-  badge.textContent=ready?'🔒 E2E':'🔓';
-  badge.style.color=ready?'var(--a)':'var(--mu)';
-  badge.title=ready?'Double Ratchet X3DH + AES-256-GCM':'Шифрование не установлено';
-}
-// ══ End Double Ratchet ════════════════════════════════
-// ── Auth & Key ────────────────────────────────────────
-let _authPrivKey=null, _authPubRaw=null;
-
-let _myEncKey=null;
-async function loadOrGenEncKey(){
-  try{
-    const saved=localStorage.getItem('tvrc_enc_key');
-    if(saved){
-      const jwk=JSON.parse(saved);
-      const priv=await crypto.subtle.importKey('jwk',jwk,{name:'X25519'},true,['deriveBits']);
-      const pub=await crypto.subtle.importKey('jwk',{...jwk,key_ops:[]},{name:'X25519'},true,[]);
-      const pubRaw=new Uint8Array(await crypto.subtle.exportKey('raw',pub));
-      const pubB64u=btoa(String.fromCharCode(...pubRaw)).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
-      _myEncKey={privateJwk:jwk,publicKeyB64u:pubB64u};return;
-    }
-  }catch(_){_myEncKey=null;}
-  const kp=await crypto.subtle.generateKey({name:'X25519'},true,['deriveBits']);
-  const privJwk=await crypto.subtle.exportKey('jwk',kp.privateKey);
-  const pubRaw=new Uint8Array(await crypto.subtle.exportKey('raw',kp.publicKey));
-  const pubB64u=btoa(String.fromCharCode(...pubRaw)).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
-  _myEncKey={privateJwk:privJwk,publicKeyB64u:pubB64u};
-  localStorage.setItem('tvrc_enc_key',JSON.stringify(privJwk));
-}
+// ════════════════════════════════════════════
+// IDENTITY — Ed25519
+// ════════════════════════════════════════════
 async function loadOrGenKey(){
   try{
-    const saved=localStorage.getItem('tvrc_key');
-    if(saved){
-      const jwk=JSON.parse(saved);
-      _authPrivKey=await crypto.subtle.importKey('jwk',jwk,{name:'Ed25519'},false,['sign']);
-      const pubJwk=JSON.parse(localStorage.getItem('tvrc_pubkey')||'null');
-      if(pubJwk){
-        const pk=await crypto.subtle.importKey('jwk',pubJwk,{name:'Ed25519'},true,[]);
-        _authPubRaw=new Uint8Array(await crypto.subtle.exportKey('raw',pk));
-      }
+    const kj=JSON.parse(localStorage.getItem('tvrc_key')||'null');
+    const pj=JSON.parse(localStorage.getItem('tvrc_pub')||'null');
+    if(kj&&pj){
+      myPrivKey=await crypto.subtle.importKey('jwk',kj,{name:'Ed25519'},false,['sign']);
+      const pk=await crypto.subtle.importKey('jwk',pj,{name:'Ed25519'},true,[]);
+      myPubRaw=new Uint8Array(await crypto.subtle.exportKey('raw',pk));
     }
-  }catch(_){ _authPrivKey=null; _authPubRaw=null; }
-
-  if(!_authPrivKey||!_authPubRaw){
+  }catch(_){}
+  if(!myPrivKey){
     const kp=await crypto.subtle.generateKey({name:'Ed25519'},true,['sign','verify']);
-    _authPrivKey=kp.privateKey;
-    _authPubRaw=new Uint8Array(await crypto.subtle.exportKey('raw',kp.publicKey));
+    myPrivKey=kp.privateKey;
+    myPubRaw=new Uint8Array(await crypto.subtle.exportKey('raw',kp.publicKey));
     localStorage.setItem('tvrc_key',JSON.stringify(await crypto.subtle.exportKey('jwk',kp.privateKey)));
-    localStorage.setItem('tvrc_pubkey',JSON.stringify(await crypto.subtle.exportKey('jwk',kp.publicKey)));
-    dbg('Новый Ed25519 ключ сгенерирован','ok');
+    localStorage.setItem('tvrc_pub',JSON.stringify(await crypto.subtle.exportKey('jwk',kp.publicKey)));
   }
-  const hash=await crypto.subtle.digest('SHA-256',_authPubRaw);
-  myId='tvp-'+Array.from(new Uint8Array(hash)).map(b=>b.toString(16).padStart(2,'0')).join('').slice(0,48);
+  const h=await crypto.subtle.digest('SHA-256',myPubRaw);
+  myId='tvp-'+Array.from(new Uint8Array(h)).map(b=>b.toString(16).padStart(2,'0')).join('').slice(0,48);
   localStorage.setItem('tvrc_my_id',myId);
-  $('my-id-inp').value=myId;
+  $('my-id-text').textContent=myId;
   $('my-id-badge').textContent=myId;
-  dbg('ID: '+myId,'info');
 }
 
 async function signAuth(nonce){
-  const msg=new TextEncoder().encode(`tovsa-auth:${nonce}:${myId}`);
-  const sig=await crypto.subtle.sign('Ed25519',_authPrivKey,msg);
-  return { pub:Array.from(_authPubRaw), sig:Array.from(new Uint8Array(sig)) };
+  const msg=new TextEncoder().encode('tovsa-auth:'+nonce+':'+myId);
+  const sig=await crypto.subtle.sign('Ed25519',myPrivKey,msg);
+  return {pub:Array.from(myPubRaw),sig:Array.from(new Uint8Array(sig))};
 }
 
 async function resetKey(){
-  if(!confirm('Удалить ключ и сгенерировать новый? ID изменится.')) return;
-  localStorage.removeItem('tvrc_key'); localStorage.removeItem('tvrc_pubkey'); localStorage.removeItem('tvrc_my_id'); localStorage.removeItem('tvrc_enc_key');
-  _authPrivKey=null; _authPubRaw=null; _myEncKey=null;
+  if(!confirm('Удалить ключ? ID изменится.')) return;
+  ['tvrc_key','tvrc_pub','tvrc_my_id'].forEach(k=>localStorage.removeItem(k));
+  myPrivKey=null; myPubRaw=null;
   await loadOrGenKey();
-  await loadOrGenEncKey();
   generateQr();
-  if(ws){ try{ws.close();}catch(_){} ws=null; isOpen=false; setDot(''); }
-  toast('Новый ключ создан. Переподключитесь.','ok');
+  if(ws){try{ws.close();}catch(_){} ws=null; isOpen=false; setDot('');}
+  toast('Новый ключ создан','ok');
 }
 
-// ── Connection ────────────────────────────────────────
-function onSrvChange(){ $('srv-custom').style.display=$('srv-select').value==='custom'?'':'none'; }
-function getServerUrl(){ return $('srv-select').value==='custom'?$('srv-custom').value.trim():$('srv-select').value; }
-function setDot(cls){ const d=$('conn-dot'); d.className='dot'+(cls?' '+cls:''); }
+// ════════════════════════════════════════════
+// E2E — ECDH + AES-GCM
+// ════════════════════════════════════════════
+async function aesGenKey(){
+  return crypto.subtle.generateKey({name:'AES-GCM',length:256},false,['encrypt','decrypt']);
+}
+
+async function aesEncrypt(key, plaintext){
+  const iv=crypto.getRandomValues(new Uint8Array(12));
+  const ct=await crypto.subtle.encrypt({name:'AES-GCM',iv},key,new TextEncoder().encode(plaintext));
+  const buf=new Uint8Array(12+ct.byteLength);
+  buf.set(iv); buf.set(new Uint8Array(ct),12);
+  return btoa(String.fromCharCode(...buf));
+}
+
+async function aesDecrypt(key, b64){
+  const buf=Uint8Array.from(atob(b64),c=>c.charCodeAt(0));
+  const pt=await crypto.subtle.decrypt({name:'AES-GCM',iv:buf.slice(0,12)},key,buf.slice(12));
+  return new TextDecoder().decode(pt);
+}
+
+// ECDH handshake: initiator sends ecdh_hello with X25519 pubkey
+// responder replies ecdh_ack with its pubkey
+// both derive shared AES key
+async function ecdhGenKP(){
+  const kp=await crypto.subtle.generateKey({name:'X25519'},true,['deriveBits']);
+  const pub=new Uint8Array(await crypto.subtle.exportKey('raw',kp.publicKey));
+  const jwk=await crypto.subtle.exportKey('jwk',kp.privateKey);
+  return {pub,jwk};
+}
+
+async function ecdhDerive(privJwk, theirPubBytes){
+  const priv=await crypto.subtle.importKey('jwk',privJwk,{name:'X25519'},false,['deriveBits']);
+  const pub=await crypto.subtle.importKey('raw',theirPubBytes,{name:'X25519'},false,[]);
+  const bits=await crypto.subtle.deriveBits({name:'X25519',public:pub},priv,256);
+  return crypto.subtle.importKey('raw',bits,'AES-GCM',false,['encrypt','decrypt']);
+}
+
+function b64(buf){ let s=''; for(const b of buf)s+=String.fromCharCode(b); return btoa(s); }
+function unb64(s){ return Uint8Array.from(atob(s),c=>c.charCodeAt(0)); }
+
+// ════════════════════════════════════════════
+// WEBSOCKET
+// ════════════════════════════════════════════
+function setDot(cls){
+  const d=$('conn-dot');
+  d.className='dot'+(cls?' '+cls:'');
+}
+
+function onSrvChange(){
+  $('srv-custom').style.display=$('srv-select').value==='custom'?'':'none';
+}
 
 function connectToServer(){
-  const url=getServerUrl();
-  if(!url){ toast('Введи URL','err'); return; }
+  const url=$('srv-select').value==='custom'?$('srv-custom').value.trim():$('srv-select').value;
+  if(!url){toast('Введи URL','err');return;}
   localStorage.setItem('tvrc_srv',url);
-  $('btn-connect').disabled=true; $('btn-connect').textContent='Подключаюсь...';
-  setDot(''); dbg('WS → '+url,'info');
-  if(ws){ try{ws.close(1000,'reconnect');}catch(_){} ws=null; }
+  $('btn-connect').disabled=true;
+  $('btn-connect').textContent='Подключаюсь...';
+  setDot('');
+  if(ws){try{ws.close(1000,'reconnect');}catch(_){} ws=null;}
   ws=new WebSocket(url);
-  ws.onopen=()=>{ setDot('act'); window._wsRA=0; dbg('WS открыт','ok'); };
-  ws.onclose=(e)=>{
+  ws.onopen=()=>{setDot('act'); window._wsRA=0;};
+  ws.onclose=e=>{
     setDot(''); isOpen=false;
-    $('btn-connect').disabled=false; $('btn-connect').textContent='Подключиться';
+    $('btn-connect').disabled=false;
+    $('btn-connect').textContent='Подключиться';
     $('btn-add').disabled=true;
-    dbg(`WS закрыт: ${e.code} ${e.reason||''}`,e.code===1000?'':'err');
-    // Не реконнектить при нормальном закрытии или серверных ошибках (4xxx = протокол)
-    if(e.code===1000||e.code===1001) return;
-    if(e.code>=4000 && e.code<5000) return; // IdTaken, AuthFailed и т.д. — не реконнектить
-    if(typeof window._wsRA==='undefined') window._wsRA=0;
-    window._wsRA++;
-    const delay=Math.min(1000*Math.pow(1.5,window._wsRA-1),30000);
-    dbg('Реконнект через '+Math.round(delay/1000)+'с (попытка '+window._wsRA+')...','info');
-    setTimeout(()=>connectToServer(),delay);
+    rlog('WS закрыт: '+e.code+(e.reason?' '+e.reason:''), 'err');
+    if(e.code===1000||e.code===1001||e.code>=4000) return;
+    window._wsRA=(window._wsRA||0)+1;
+    const d=Math.min(1000*Math.pow(1.5,window._wsRA-1),30000);
+    rlog('Реконнект через '+Math.round(d/1000)+'с...');
+    setTimeout(connectToServer, d);
   };
-  ws.onerror=()=>{ setDot(''); $('btn-connect').disabled=false; $('btn-connect').textContent='Подключиться'; toast('Ошибка подключения','err'); };
-  ws.onmessage=(e)=>{ let m; try{m=JSON.parse(e.data);}catch{return;} handleServer(m); };
-}
-
-function handleServerErr(code, msg){
-  const ERRORS = {
-    4000: 'Некорректный ID',
-    4001: 'ID уже занят — перезагрузи страницу или сбрось ключ в настройках',
-    4002: 'Сервер переполнен',
-    4003: 'Ошибка аутентификации — сбрось ключ в настройках',
-    4004: 'Таймаут аутентификации',
-    4005: 'Таймаут HELLO',
-    4008: 'Таймаут keepalive',
-    4029: 'Слишком много запросов',
+  ws.onerror=()=>{
+    setDot('err');
+    $('btn-connect').disabled=false;
+    $('btn-connect').textContent='Подключиться';
+    toast('Ошибка подключения','err');
   };
-  const text = ERRORS[code] || ('Ошибка сервера: '+code+(msg?' — '+msg:''));
-
-  // Для IdTaken — показать модалку с объяснением, не спамить тост
-  if(code === 4001){
-    showIdTakenError();
-    return;
-  }
-  toast(text, 'err', 4000);
-}
-
-function showIdTakenError(){
-  // Убрать если уже показано
-  if(document.getElementById('id-taken-modal')) return;
-  const m = document.createElement('div');
-  m.id = 'id-taken-modal';
-  m.style.cssText = 'position:fixed;inset:0;z-index:400;background:rgba(0,0,0,.8);display:flex;flex-direction:column;justify-content:flex-end;backdrop-filter:blur(4px)';
-  m.innerHTML = `
-    <div style="background:var(--sf);border-radius:20px 20px 0 0;border-top:1px solid var(--bd);padding:20px;padding-bottom:calc(20px + env(safe-area-inset-bottom,0px))" onclick="event.stopPropagation()">
-      <div style="font-size:14px;font-weight:700;color:var(--e);margin-bottom:10px">⚠ ID уже занят (4001)</div>
-      <div style="font-size:12px;color:var(--mu);line-height:1.9;margin-bottom:14px">
-        Этот ID уже подключён к серверу.<br>
-        Обычно причина — другая вкладка или старое соединение не успело закрыться.<br><br>
-        <b style="color:var(--tx)">Что делать:</b><br>
-        • Закрой другие вкладки с Tovsa RC<br>
-        • Подожди 30–60 секунд и попробуй снова<br>
-        • Или сгенерируй новый ID (ключ) в настройках
-      </div>
-      <div style="display:flex;flex-direction:column;gap:8px">
-        <button onclick="document.getElementById('id-taken-modal').remove();setTimeout(()=>connectToServer(),2000);this.textContent='Подождём 2с...';this.disabled=true" style="background:var(--a);color:#000;border:none;border-radius:10px;padding:12px;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer">Попробовать снова</button>
-        <button onclick="document.getElementById('id-taken-modal').remove();goTab('settings')" style="background:none;border:1px solid var(--bd);color:var(--mu);border-radius:10px;padding:12px;font-family:inherit;font-size:12px;cursor:pointer">Сбросить ключ в настройках</button>
-      </div>
-    </div>`;
-  m.onclick = ()=>m.remove();
-  document.body.appendChild(m);
+  ws.onmessage=e=>{
+    let m; try{m=JSON.parse(e.data);}catch{return;}
+    handleServer(m);
+  };
 }
 
 function wsSend(msg){
-  if(!ws||ws.readyState!==WebSocket.OPEN){ toast('Нет соединения','err'); return false; }
+  if(!ws||ws.readyState!==WebSocket.OPEN) return false;
   ws.send(JSON.stringify(msg));
-  if(msg.type!=='PONG'&&msg.type!=='AUTH') dbg('→ '+msg.type+(msg.to?' to='+String(msg.to).slice(0,14):'')+(msg.kind?' '+msg.kind:''),'info');
   return true;
 }
 
 function handleServer(m){
-  dbg('← '+m.type+(m.code?' '+m.code:''),'info');
   switch(m.type){
     case 'HELLO_REQ': wsSend({type:'HELLO',id:myId,v:5}); break;
-    case 'CHALLENGE': handleChallenge(m.nonce); break;
+    case 'CHALLENGE': signAuth(m.nonce).then(({pub,sig})=>wsSend({type:'AUTH',pub,sig})).catch(()=>{}); break;
     case 'OPEN':
       isOpen=true; setDot('on');
       $('my-id-badge').style.display='inline-block';
-      $('btn-connect').disabled=false; $('btn-connect').textContent='Переподключить';
+      $('btn-connect').disabled=false;
+      $('btn-connect').textContent='Переподключить';
       $('btn-add').disabled=false;
-      dbg('OPEN ✓','ok'); toast('Подключено!','ok');
-      requestNotifPermission();
-      schedulePresence(); break;
+      rlog('Подключено ✓','ok'); toast('Подключено!','ok');
+      schedulePresence();
+      break;
     case 'ERR':
-      dbg('ERR '+m.code+' '+(m.msg||''),'err');
-      handleServerErr(m.code, m.msg||m.reason||'');
-      $('btn-connect').disabled=false; $('btn-connect').textContent='Подключиться'; break;
-    case 'RELAY': dbg('← RELAY '+m.kind+' from='+String(m.from).slice(0,14),'info'); handleRelay(m.from,m.kind,m.data); break;
-    case 'RELAY-ACK': if(!m.delivered) toast('Устройство недоступно: '+String(m.to).slice(0,16)); break;
-    case 'PRESENCE-RESULT': handlePresenceResult(m); break;
+      rlog('ERR '+m.code+(m.msg?' '+m.msg:''),'err');
+      if(m.code===4001) toast('ID занят — другая вкладка?','err',5000);
+      else toast('Ошибка: '+m.code,'err');
+      $('btn-connect').disabled=false;
+      $('btn-connect').textContent='Подключиться';
+      break;
+    case 'RELAY':
+      handleRelay(m.from, m.kind, m.data);
+      break;
+    case 'RELAY-ACK':
+      if(!m.delivered) toast('Устройство недоступно','err');
+      break;
+    case 'PRESENCE-RESULT':
+      handlePresenceResult(m);
+      break;
     case 'PING': wsSend({type:'PONG'}); break;
   }
 }
 
-async function handleChallenge(nonce){
-  if(!nonce){ dbg('CHALLENGE без nonce','err'); return; }
-  try{ const {pub,sig}=await signAuth(nonce); wsSend({type:'AUTH',pub,sig}); }
-  catch(e){ dbg('AUTH error: '+e.message,'err'); toast('Ошибка AUTH','err'); }
-}
-
-// ── Presence ──────────────────────────────────────────
+// ════════════════════════════════════════════
+// PRESENCE
+// ════════════════════════════════════════════
 let _presTimer=null;
-function schedulePresence(){ if(_presTimer)clearInterval(_presTimer); doPresence(); _presTimer=setInterval(doPresence,15000); }
-function doPresence(){ const ids=Object.keys(peers); if(!ids.length||!isOpen)return; wsSend({type:'PRESENCE',reqId:'p'+Date.now(),ids}); }
+function schedulePresence(){
+  if(_presTimer) clearInterval(_presTimer);
+  doPresence();
+  _presTimer=setInterval(doPresence,15000);
+}
+function doPresence(){
+  const ids=Object.keys(peers);
+  if(!ids.length||!isOpen) return;
+  wsSend({type:'PRESENCE',reqId:'p'+Date.now(),ids});
+}
 function handlePresenceResult(m){
   const online=Array.isArray(m.online)?m.online:[];
   let ch=false;
-  for(const id of Object.keys(peers)){ const was=peers[id].online; peers[id].online=online.includes(id); if(was!==peers[id].online)ch=true; }
+  for(const id of Object.keys(peers)){
+    const was=peers[id].online;
+    peers[id].online=online.includes(id);
+    if(was!==peers[id].online) ch=true;
+  }
   if(ch) renderDeviceList();
 }
 
-// ── WebRTC ────────────────────────────────────────────
-const RTC_CFG_BASE=[{urls:'stun:stun.l.google.com:19302'},{urls:'stun:stun1.l.google.com:19302'}];
-function getRtcCfg(){ return {iceServers:[...RTC_CFG_BASE], iceCandidatePoolSize:4}; }
+// ════════════════════════════════════════════
+// WEBRTC
+// ════════════════════════════════════════════
+const STUN=[{urls:'stun:stun.l.google.com:19302'},{urls:'stun:stun1.l.google.com:19302'}];
 
 function getRtc(id){
   if(rtcs[id]) return rtcs[id];
-  const entry={pc:new RTCPeerConnection(getRtcCfg()),dc:null,state:'new',pending:[]};
+  const entry={pc:new RTCPeerConnection({iceServers:STUN}),dc:null,state:'new',pending:[],aesKey:null,_ecdhKP:null};
   rtcs[id]=entry;
-  // ICE candidate tracking for NAT detection
-  entry._iceCandidates = [];
-  entry._iceTimer = null;
 
-  entry.pc.onicecandidate = e => {
+  entry.pc.onicecandidate=e=>{
     if(e.candidate){
-      entry._iceCandidates.push(e.candidate);
+      // Only send srflx/relay candidates (no host — no local IP leak)
+      if(e.candidate.type==='host') return;
       wsSend({type:'RELAY',to:id,kind:'ice',data:e.candidate});
-    } else {
-      // Gathering complete — analyze NAT type
-      analyzeNat(id, entry._iceCandidates);
-    }
-  };
-
-  entry.pc.onicegatheringstatechange = () => {
-    if(entry.pc.iceGatheringState === 'complete'){
-      analyzeNat(id, entry._iceCandidates);
-    }
-  };
-
-  entry.pc.oniceconnectionstatechange = () => {
-    const ice = entry.pc.iceConnectionState;
-    dbg('ICE ['+id.slice(0,14)+'] → '+ice, ice==='connected'||ice==='completed'?'ok':ice==='failed'?'err':'info');
-    if(ice === 'failed'){
-      showNatWarning(id);
     }
   };
 
   entry.pc.onconnectionstatechange=()=>{
     const s=entry.pc.connectionState;
-    dbg('RTC ['+id.slice(0,14)+'] → '+s,s==='connected'?'ok':s==='failed'?'err':'info');
-    if(s==='connected'){
-      entry.state='open';
-      clearTimeout(entry._natCheckTimer);
-      clearTimeout(entry._natWarnTimer);
-      document.getElementById('nat-warning')?.remove();
-    }
+    rlog('RTC ['+id.slice(0,14)+'] '+s, s==='connected'?'ok':s==='failed'?'err':'');
+    if(s==='connected') entry.state='open';
     else if(['failed','disconnected','closed'].includes(s)) entry.state='closed';
-    if(currentDevice===id) updateDevRtcBadge(id);
+    if(currentDevice===id) updateRtcBadge(id);
     renderDeviceList();
-    // Auto-refresh remote file list when RTC connects
-    if(s==='connected'&&currentDevice===id){
-      const remoteVisible=$('fm-remote')?.style.display!=='none';
-      if(remoteVisible) fsCtrlStartBrowse();
-    }
-    if((s==='failed'||s==='disconnected')&&peers[id]){
-      dbg('RTC разрыв','err');
+  };
+
+  entry.pc.oniceconnectionstatechange=()=>{
+    if(entry.pc.iceConnectionState==='failed'){
+      rlog('ICE failed — возможно Symmetric NAT','err');
+      toast('P2P не удался (NAT). Попробуй Wi-Fi.','err',6000);
     }
   };
-  entry.pc.ondatachannel=e=>{entry._drIsInitiator=false;setupDc(id,e.channel);};
+
+  entry.pc.ondatachannel=e=>{
+    entry._isInitiator=false;
+    setupDc(id, e.channel);
+  };
+
   return entry;
 }
 
-function setupDc(id,dc){
-  const entry=rtcs[id]; if(!entry) return;
+function setupDc(id, dc){
+  const entry=rtcs[id];
+  if(!entry) return;
   entry.dc=dc;
   dc.onopen=async()=>{
     entry.state='open';
-    if(currentDevice===id){updateDevRtcBadge(id);fmCheckRemoteState();}
     renderDeviceList();
-    rlog('✓ DataChannel открыт','ok');
+    if(currentDevice===id) updateRtcBadge(id);
+    rlog('DataChannel открыт ['+id.slice(0,14)+']','ok');
     toast('RTC подключён!','ok');
-    if(entry._drIsInitiator){
-      try{const h=await _drHello(id);dc.send(JSON.stringify(h));dbg('[DR] hello →','info');}
-      catch(e){dbg('[DR] hello err: '+e.message,'err');}
+    // ECDH handshake
+    if(entry._isInitiator){
+      entry._ecdhKP=await ecdhGenKP();
+      dcSendRaw(id,{_t:'ecdh_hello',pub:b64(entry._ecdhKP.pub)});
     }
   };
   dc.onclose=()=>{
     entry.state='closed';
-    _drClear(id);
-    _updateDrBadge(id);
-    if(currentDevice===id)updateDevRtcBadge(id);
+    entry.aesKey=null;
+    if(currentDevice===id) updateRtcBadge(id);
     renderDeviceList();
   };
-  dc.onmessage=e=>{ let m; try{m=JSON.parse(e.data);}catch{return;} handleDc(id,m); };
+  dc.onmessage=e=>{
+    let m; try{m=JSON.parse(e.data);}catch{return;}
+    handleDc(id,m);
+  };
 }
 
 async function createOffer(id){
   const entry=getRtc(id);
+  entry._isInitiator=true;
   const dc=entry.pc.createDataChannel('tvrc',{ordered:true});
-  entry._drIsInitiator=true;
   setupDc(id,dc);
   entry.state='connecting';
-  startNatCheckTimer(id,entry);
-  if(currentDevice===id) updateDevRtcBadge(id);
+  if(currentDevice===id) updateRtcBadge(id);
   try{
     const offer=await entry.pc.createOffer();
     await entry.pc.setLocalDescription(offer);
     wsSend({type:'RELAY',to:id,kind:'offer',data:offer});
-    dbg('RTC offer → '+id.slice(0,14),'info');
-  }catch(e){ dbg('createOffer error: '+e.message,'err'); toast('Ошибка RTC','err'); }
+  }catch(e){
+    rlog('createOffer error: '+e.message,'err');
+    toast('Ошибка RTC','err');
+  }
 }
 
 async function handleRelay(from,kind,data){
-  if(!peers[from]){ peers[from]={id:from,name:from,online:true,emoji:randomEmoji()}; savePeers(); renderDeviceList(); }
+  if(!peers[from]){peers[from]={id:from,name:from,online:true,emoji:rndEmoji()};savePeers();renderDeviceList();}
   const entry=getRtc(from);
   if(kind==='offer'){
     try{
@@ -1321,1161 +740,574 @@ async function handleRelay(from,kind,data){
       const ans=await entry.pc.createAnswer();
       await entry.pc.setLocalDescription(ans);
       wsSend({type:'RELAY',to:from,kind:'answer',data:ans});
-      startNatCheckTimer(from,entry);
       for(const c of entry.pending) await entry.pc.addIceCandidate(c).catch(()=>{});
       entry.pending=[];
-      rlog('← offer от '+from.slice(0,14)+', отвечаю','ok');
-    }catch(e){ dbg('answer error: '+e.message,'err'); }
+      rlog('offer от '+from.slice(0,14),'ok');
+    }catch(e){rlog('answer error: '+e.message,'err');}
   } else if(kind==='answer'){
-    try{ await entry.pc.setRemoteDescription(data); for(const c of entry.pending) await entry.pc.addIceCandidate(c).catch(()=>{}); entry.pending=[]; }
-    catch(e){ dbg('setRemote error: '+e.message,'err'); }
+    try{
+      await entry.pc.setRemoteDescription(data);
+      for(const c of entry.pending) await entry.pc.addIceCandidate(c).catch(()=>{});
+      entry.pending=[];
+    }catch(e){rlog('setRemote error: '+e.message,'err');}
   } else if(kind==='ice'){
     if(entry.pc.remoteDescription) await entry.pc.addIceCandidate(data).catch(()=>{});
     else entry.pending.push(data);
-  } else if(kind==='leave'){
-    try{entry.pc.close();}catch(_){}
-    entry.state='closed';
-    if(currentDevice===from) updateDevRtcBadge(from);
-    renderDeviceList();
   }
 }
 
-// ── DataChannel routing ───────────────────────────────
-function dcSend(id,msg){
+// ════════════════════════════════════════════
+// DATACHANNEL MESSAGING
+// ════════════════════════════════════════════
+function dcSendRaw(id, msg){
   const e=rtcs[id||currentDevice];
-  if(!e||!e.dc||e.dc.readyState!=='open'){ toast('RTC не подключён','err'); return false; }
-  e.dc.send(JSON.stringify(msg)); return true;
+  if(!e?.dc||e.dc.readyState!=='open') return false;
+  e.dc.send(JSON.stringify(msg));
+  return true;
 }
 
-function handleDc(from,msg){
-  if(msg._t==='__dr_hello__'){
-    _drOnHello(from,msg).then(ack=>{
-      if(!ack)return;
-      const e=rtcs[from];if(e?.dc?.readyState==='open')e.dc.send(JSON.stringify(ack));
-      dbg('[DR] ack sent','info');_updateDrBadge(from);
-    }).catch(e=>dbg('[DR] hello err: '+e.message,'err'));
-    return;
+async function dcSend(id, msg){
+  const e=rtcs[id||currentDevice];
+  if(!e?.dc||e.dc.readyState!=='open'){toast('RTC не подключён','err');return false;}
+  if(e.aesKey){
+    const ct=await aesEncrypt(e.aesKey, JSON.stringify(msg));
+    e.dc.send(JSON.stringify({_e:ct}));
+  } else {
+    e.dc.send(JSON.stringify(msg));
   }
-  if(msg._t==='__dr_hello_ack__'){
-    _drOnAck(from,msg).then(()=>{dbg('[DR] handshake done','ok');_updateDrBadge(from);})
-    .catch(e=>dbg('[DR] ack err: '+e.message,'err'));
-    return;
-  }
-  if(msg._t==='__dr__'){
-    _drDec(_drCtx(from),msg).then(pt=>{
-      let m;try{m=JSON.parse(pt);}catch{m={type:'chat',text:pt};}
-      handleDcMsg(from,m);
-    }).catch(e=>dbg('[DR] dec err: '+e.message,'err'));
-    return;
-  }
-  handleDcMsg(from,msg);
+  return true;
 }
-function handleDcMsg(from,msg){
+
+async function handleDc(from, msg){
+  const entry=rtcs[from];
+
+  // ECDH handshake (unencrypted)
+  if(msg._t==='ecdh_hello'){
+    entry._ecdhKP=await ecdhGenKP();
+    const theirPub=unb64(msg.pub);
+    entry.aesKey=await ecdhDerive(entry._ecdhKP.jwk, theirPub);
+    dcSendRaw(from,{_t:'ecdh_ack',pub:b64(entry._ecdhKP.pub)});
+    rlog('E2E ключ установлен ['+from.slice(0,14)+']','ok');
+    return;
+  }
+  if(msg._t==='ecdh_ack'){
+    const theirPub=unb64(msg.pub);
+    entry.aesKey=await ecdhDerive(entry._ecdhKP.jwk, theirPub);
+    rlog('E2E ключ установлен ['+from.slice(0,14)+']','ok');
+    return;
+  }
+
+  // Decrypt if encrypted
+  if(msg._e){
+    if(!entry.aesKey) return;
+    try{
+      const pt=await aesDecrypt(entry.aesKey, msg._e);
+      msg=JSON.parse(pt);
+    }catch(e){rlog('Decrypt error: '+e.message,'err');return;}
+  }
+
+  handleDcMsg(from, msg);
+}
+
+function handleDcMsg(from, msg){
   switch(msg.type){
-    case 'chat': addMsg(from,msg.text,'in'); break;
-    case 'remote_result': rlog('← '+msg.cmd+': '+String(msg.result).slice(0,200),'in'); toast('✓ '+String(msg.result).slice(0,50),'ok'); break;
-    case 'remote_error':  rlog('✗ '+msg.error,'err'); toast('Ошибка: '+msg.error,'err'); break;
-    case 'remote_open_url': execOpenUrl(from,msg); break;
-    case 'remote_eval':     execEval(from,msg);    break;
-    case 'remote_query':    execQuery(from,msg);   break;
-    case 'remote_audio_record':    execAudioRecord(from,msg);    break;
-    case 'remote_audio_res':       ctrlHandleAudio(msg);         break;
-    // FS commands (host receives)
-    case 'fs_list':      fsExecList(from,msg);      break;
-    case 'fs_read':      fsExecRead(from,msg);      break;
-    case 'fs_write':     fsExecWrite(from,msg);     break;
-    case 'fs_delete':    fsExecDelete(from,msg);    break;
-    case 'fs_mkdir':     fsExecMkdir(from,msg);     break;
-    case 'fs_rename':    fsExecRename(from,msg);    break;
-    case 'fs_open':      fsExecOpen(from,msg);      break;
-    case 'fs_chunk':     fsExecChunk(from,msg);     break;
-    case 'fs_chunk_end': fsExecChunkEnd(from,msg);  break;
-    // FS responses (controller receives)
-    case 'fs_list_res':   fsCtrlHandleList(msg);      break;
-    case 'fs_read_chunk': fsCtrlHandleReadChunk(msg); break;
-    case 'fs_read_end':   fsCtrlHandleReadEnd(msg);   break;
-    case 'fs_ok':         fsCtrlHandleOk(msg);        break;
-    case 'fs_err':        fsCtrlHandleErr(msg);       break;
-    // Screen mirror
-    case 'screen_start':  screenDcHostStart(from,msg); break;
-    case 'screen_stop':   screenDcHostStop(from);      break;
-    case 'screen_frame':  screenDcCtrlFrame(msg);      break;
-    case 'screen_input':  screenDcHostInput(from,msg); break;
+    // Screen mirror — host side
+    case 'screen_start': scrDcHostStart(from,msg); break;
+    case 'screen_stop':  scrDcHostStop(from);      break;
+    case 'screen_input': scrDcHostInput(from,msg); break;
+    // Screen mirror — controller side
+    case 'screen_frame': scrDcCtrlFrame(msg); break;
   }
 }
 
-// ── Remote exec (THIS device executes) ───────────────
-function execOpenUrl(from,msg){
-  try{
-    const t=msg.target||'_blank';
-    if(t==='popup') window.open(msg.url,'_blank','width=1200,height=800');
-    else window.open(msg.url,t);
-    dcSend(from,{type:'remote_result',cmd:'open_url',result:'opened: '+msg.url,reqId:msg.reqId});
-    rlog('← открываю: '+msg.url,'in');
-  }catch(e){ dcSend(from,{type:'remote_error',error:String(e),reqId:msg.reqId}); }
-}
-function execEval(from,msg){
-  try{ const r=eval(msg.code); dcSend(from,{type:'remote_result',cmd:'eval',result:String(r),reqId:msg.reqId}); }
-  catch(e){ dcSend(from,{type:'remote_error',error:String(e),reqId:msg.reqId}); }
-}
-function execQuery(from,msg){
-  const r=msg.query==='title'?document.title:window.location.href;
-  dcSend(from,{type:'remote_result',cmd:msg.query,result:r,reqId:msg.reqId});
-}
-
-// ── Exec: audio ──────────────────────────────────────
-async function execAudioRecord(from,msg){
-  const ms=Math.min((msg.duration||5),30)*1000;
-  try{
-    const stream=await navigator.mediaDevices.getUserMedia({audio:true,video:false});
-    const rec=new MediaRecorder(stream);
-    const chunks=[];
-    rec.ondataavailable=e=>{if(e.data.size>0)chunks.push(e.data);};
-    rec.start(200);
-    await new Promise(r=>setTimeout(r,ms));
-    rec.stop(); stream.getTracks().forEach(t=>t.stop());
-    await new Promise(r=>{rec.onstop=r;});
-    const ab=await new Blob(chunks).arrayBuffer();
-    const b64=btoa(String.fromCharCode(...new Uint8Array(ab)));
-    dcSend(from,{type:'remote_audio_res',reqId:msg.reqId,b64,duration:ms,mime:'audio/webm'});
-    toast('Запись отправлена','ok');
-  }catch(e){dcSend(from,{type:'remote_error',error:'Микрофон: '+e.message,reqId:msg.reqId});}
-}
-
-// ── Send commands ─────────────────────────────────────
-function sendOpenUrl(){
-  const url=$('r-url').value.trim(), target=$('r-target').value;
-  if(!url){toast('Введи URL');return;}
-  if(dcSend(currentDevice,{type:'remote_open_url',url,target,reqId:Date.now()})) rlog('→ открыть '+url,'ok');
-}
-function sendEval(){
-  const code=$('r-js').value.trim(); if(!code){toast('Введи код');return;}
-  if(dcSend(currentDevice,{type:'remote_eval',code,reqId:Date.now()})) rlog('→ eval: '+code.slice(0,50),'ok');
-}
-function sendQuery(q){ if(dcSend(currentDevice,{type:'remote_query',query:q,reqId:Date.now()})) rlog('→ '+q,'ok'); }
-function setUrl(u){ $('r-url').value=u; }
-
-// ── Chat ──────────────────────────────────────────────
-function _chatDb(){return new Promise((res,rej)=>{const r=indexedDB.open('tvrc_chat',1);r.onupgradeneeded=e=>{const db=e.target.result;if(!db.objectStoreNames.contains('msgs')){const s=db.createObjectStore('msgs',{keyPath:'id',autoIncrement:true});s.createIndex('dev','dev');}};r.onsuccess=e=>res(e.target.result);r.onerror=rej;});}
-async function chatSave(dev,text,dir){try{const db=await _chatDb();const tx=db.transaction('msgs','readwrite');tx.objectStore('msgs').add({dev,text,dir,ts:Date.now()});}catch(_){}}
-async function chatLoad(dev){try{const db=await _chatDb();return await new Promise((res,rej)=>{const tx=db.transaction('msgs','readonly');const req=tx.objectStore('msgs').index('dev').getAll(IDBKeyRange.only(dev));req.onsuccess=()=>res(req.result||[]);req.onerror=rej;});}catch(_){return[];}}
-async function chatClear(dev){try{const db=await _chatDb();const tx=db.transaction('msgs','readwrite');const r2=tx.objectStore('msgs').index('dev').openCursor(IDBKeyRange.only(dev));r2.onsuccess=e=>{const c=e.target.result;if(c){c.delete();c.continue();}};}catch(_){}}
-async function loadChatHistory(dev){const msgs=$('msgs');msgs.innerHTML='';const h=await chatLoad(dev);if(h.length){const d=document.createElement('div');d.className='msg sys';d.textContent='── История ──';msgs.appendChild(d);h.forEach(m=>addMsg(m.dir==='out'?'__out__':m.dev,m.text,m.dir,m.ts));const sep=document.createElement('div');sep.className='msg sys';sep.textContent='── Сейчас ──';msgs.appendChild(sep);}msgs.scrollTop=msgs.scrollHeight;}
-async function clearChatHistory(){if(!currentDevice||!confirm('Очистить историю?'))return;await chatClear(currentDevice);$('msgs').innerHTML='';sysMsg('История очищена');}
-function addMsg(from,text,dir,ts){
-  const msgs=$('msgs');
-  const wrap=document.createElement('div');
-  wrap.style.cssText='display:flex;flex-direction:column;align-items:'+(dir==='out'?'flex-end':'flex-start');
-  const b=document.createElement('div'); b.className='msg '+dir; b.textContent=text;
-  const t=document.createElement('div'); t.className='msg-time';
-  t.textContent=ts?new Date(ts).toLocaleTimeString('ru',{hour:'2-digit',minute:'2-digit'}):tsNow();
-  wrap.append(b,t); msgs.appendChild(wrap); msgs.scrollTop=msgs.scrollHeight;
-  if(!ts){
-    chatSave(dir==='out'?currentDevice:from,text,dir).catch(()=>{});
-    if(dir==='in') notifyIncoming(from,text);
-  }
-}
-function sysMsg(text){ const m=document.createElement('div'); m.className='msg sys'; m.textContent=text; $('msgs').appendChild(m); $('msgs').scrollTop=$('msgs').scrollHeight; }
-function sendMsg(){
-  const inp=$('msg-inp'),text=inp.value.trim();if(!text)return;
-  const dr=rtcs[currentDevice]?._dr;
-  if(dr?.ready){
-    _drSend(currentDevice,JSON.stringify({type:'chat',text}));
-    addMsg(myId,text,'out');
-    chatSave(currentDevice,text,'out').catch(()=>{});
-  } else if(dcSend(currentDevice,{type:'chat',text})){
-    addMsg(myId,text,'out');
-  }
-  inp.value='';inp.style.height='';
-}
-function onMsgKey(e){ if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendMsg();} }
-
-// ── Notifications ────────────────────────────────────
-let _unread=0;
-async function requestNotifPermission(){
-  if(!('Notification' in window))return false;
-  if(Notification.permission==='granted')return true;
-  return(await Notification.requestPermission())==='granted';
-}
-function notifyIncoming(from,text){
-  _unread++;
-  if(navigator.setAppBadge)navigator.setAppBadge(_unread).catch(()=>{});
-  if(!document.hidden&&currentDevice===from)return;
-  if(Notification.permission!=='granted')return;
-  const name=peers[from]?.name||from.slice(0,16);
-  const n=new Notification('Tovsa RC — '+name,{body:text.slice(0,100),icon:'/tovsa-rc/icon-192.png',tag:'chat-'+from,renotify:true});
-  n.onclick=()=>{window.focus();if(peers[from]){openDevice(from);switchInnerTab('chat');}n.close();};
-}
-function clearBadge(){_unread=0;if(navigator.clearAppBadge)navigator.clearAppBadge().catch(()=>{});}
-document.addEventListener('visibilitychange',()=>{if(!document.hidden)clearBadge();});
-
-// ── Remote log ────────────────────────────────────────
-function rlog(msg,cls=''){
-  const el=$('r-log');
-  if(!el) return;
-  if(el.children.length===1&&el.children[0].tagName==='SPAN') el.innerHTML='';
-  const d=document.createElement('div'); d.className=cls?'l-'+cls:''; d.textContent='['+tsNow()+'] '+msg;
-  el.appendChild(d); el.scrollTop=el.scrollHeight;
-  // Дублируем в agentLog для видимости из таббара
-  agentLog('['+tsNow()+'] '+msg);
-}
-
-// ── Device list ───────────────────────────────────────
+// ════════════════════════════════════════════
+// DEVICE LIST
+// ════════════════════════════════════════════
 function renderDeviceList(){
   const list=$('device-list');
   const ids=Object.keys(peers);
-  const onlineCount=ids.filter(id=>peers[id].online||rtcs[id]?.state==='open').length;
+  const onCnt=ids.filter(id=>peers[id].online||rtcs[id]?.state==='open').length;
   const badge=$('devices-badge');
-  badge.style.display=onlineCount>0?'flex':'none';
-  badge.textContent=onlineCount;
+  badge.style.display=onCnt>0?'':'none';
+  badge.textContent=onCnt;
 
   if(!ids.length){
-    list.innerHTML='<div style="padding:40px;text-align:center;font-size:12px;color:var(--mu);line-height:2"><div style="font-size:40px;opacity:.2;margin-bottom:12px">📱</div>Нет устройств.<br>Нажми «Подключиться» в настройках,<br>затем «+ Добавить».</div>';
+    list.innerHTML='<div style="padding:48px;text-align:center;font-size:12px;color:var(--mu);line-height:2"><div style="font-size:48px;opacity:.15;margin-bottom:12px">📱</div>Нет устройств.<br>Нажми «Добавить устройство».</div>';
     return;
   }
   list.innerHTML=ids.map(id=>{
-    const p=peers[id], rtc=rtcs[id], rtcState=rtc?.state||'';
-    const isOnline=p.online||rtcState==='open';
-    const dotCls=rtcState==='open'?'rtc':isOnline?'online':'';
-    const statusText=rtcState==='open'?'🔗 RTC подключён':isOnline?'● онлайн':'○ офлайн';
-    const statusColor=rtcState==='open'?'var(--a)':isOnline?'var(--w)':'var(--mu)';
-    return `<div class="device-item${rtcState==='open'?' connected':''}" onclick="openDevice('${id}')">
+    const p=peers[id], rtc=rtcs[id], rs=rtc?.state||'';
+    const online=p.online||rs==='open';
+    const dc=rs==='open'?'rtc':online?'on':'';
+    const sub=rs==='open'?'🔗 RTC подключён':online?'● онлайн':'○ офлайн';
+    return `<div class="device-item" onclick="openDevice('${id}')">
       <div class="device-avatar">${p.emoji||'💻'}</div>
       <div class="device-info">
         <div class="device-name">${esc(p.name||id)}</div>
-        <div class="device-status">
-          <div class="device-status-dot ${dotCls}"></div>
-          <span style="color:${statusColor}">${statusText}</span>
-        </div>
+        <div class="device-status"><div class="status-dot ${dc}"></div>${sub}</div>
       </div>
-      <button onclick="event.stopPropagation();removePeer('${id}')" style="background:none;border:none;color:var(--mu);font-size:20px;cursor:pointer;padding:4px;flex-shrink:0;line-height:1">×</button>
+      <button onclick="event.stopPropagation();removePeer('${id}')" style="background:none;border:none;color:var(--mu);font-size:22px;cursor:pointer;padding:4px;flex-shrink:0">×</button>
     </div>`;
   }).join('');
 }
 
+function openDevice(id){
+  currentDevice=id;
+  const p=peers[id];
+  $('dev-name').textContent=p?.name||id.slice(0,16);
+  $('s-device').style.animation='slideInR .25s cubic-bezier(.4,0,.2,1) both';
+  $('s-device').classList.add('on');
+  $('btn-back').style.display='block';
+  $('topbar-title').textContent=p?.name||id.slice(0,16);
+  updateRtcBadge(id);
+}
+
+function closeDevice(){
+  if(!currentDevice) return;
+  $('s-device').style.animation='slideOutR .22s cubic-bezier(.4,0,.2,1) both';
+  setTimeout(()=>{
+    $('s-device').classList.remove('on');
+    $('s-device').style.animation='';
+  },220);
+  // Stop screen if running
+  if(_scrRunning) scrStop();
+  currentDevice=null;
+  $('btn-back').style.display='none';
+  $('topbar-title').textContent='TOVSA RC';
+}
+
+function devStartRtc(){
+  if(!currentDevice) return;
+  if(!isOpen){toast('Нет соединения с сервером','err');return;}
+  if(rtcs[currentDevice]?.state==='open'){toast('Уже подключено');return;}
+  createOffer(currentDevice);
+}
+
+function updateRtcBadge(id){
+  const badge=$('dev-rtc-badge'), btn=$('dev-rtc-btn');
+  const s=rtcs[id]?.state||'';
+  const enc=!!rtcs[id]?.aesKey;
+  if(s==='open'){
+    badge.className='rtc-badge open';
+    badge.textContent=(enc?'🔒 ':'')+'RTC ●';
+    btn.textContent='✓ RTC'; btn.disabled=true;
+  } else if(s==='connecting'){
+    badge.className='rtc-badge connecting';
+    badge.textContent='RTC...';
+    btn.textContent='⏳'; btn.disabled=true;
+  } else {
+    badge.className='rtc-badge';
+    badge.textContent='нет RTC';
+    btn.textContent='🔗 RTC'; btn.disabled=false;
+  }
+  const sub=$('dev-sub');
+  if(sub) sub.textContent=s==='open'?(enc?'E2E зашифровано':'RTC подключён'):s==='connecting'?'Подключение...':'не подключено';
+}
+
 function removePeer(id){
   delete peers[id];
-  if(rtcs[id]){ try{rtcs[id].pc.close();}catch(_){} delete rtcs[id]; }
+  if(rtcs[id]){try{rtcs[id].pc.close();}catch(_){} delete rtcs[id];}
   if(currentDevice===id) closeDevice();
   savePeers(); renderDeviceList();
 }
 
 function savePeers(){ localStorage.setItem('tvrc_peers',JSON.stringify(peers)); }
-function randomEmoji(){ return ['💻','📱','🖥️','🖱️','⌨️','📟','📺'][Math.floor(Math.random()*7)]; }
+function rndEmoji(){ return ['💻','📱','🖥️','🖱️','⌨️','📟','📺'][Math.floor(Math.random()*7)]; }
 
-// ── Add device modal ──────────────────────────────────
+// ════════════════════════════════════════════
+// ADD DEVICE MODAL
+// ════════════════════════════════════════════
 let _qrDone=false;
 function showAddModal(){
   if(!isOpen){toast('Сначала подключись к серверу','err');return;}
   $('add-modal').classList.add('on');
   if(!_qrDone) generateQr();
 }
-function closeAddModal(e){ if(e&&e.target!==$('add-modal'))return; $('add-modal').classList.remove('on'); }
-function switchModalTab(t){
-  ['qr','manual','scan'].forEach(n=>{ $('mt-'+n).classList.toggle('act',n===t); $('mtp-'+n).classList.toggle('on',n===t); });
-}
+function closeAddModal(){ $('add-modal').classList.remove('on'); }
 function generateQr(){
+  const w=$('add-qr-wrap'); w.innerHTML='';
+  try{new QRCode(w,{text:myId,width:180,height:180,colorDark:'#000',colorLight:'#fff'});_qrDone=true;}
+  catch(_){w.textContent=myId;}
+  $('add-my-id').textContent=myId;
+}
+function generateMainQr(){
   const w=$('qr-wrap'); w.innerHTML='';
-  try{ new QRCode(w,{text:myId,width:200,height:200,colorDark:'#000',colorLight:'#fff',correctLevel:QRCode.CorrectLevel.M}); _qrDone=true; }
-  catch(_){ w.textContent=myId; }
-  $('qr-id-text').textContent=myId;
+  try{new QRCode(w,{text:myId,width:180,height:180,colorDark:'#000',colorLight:'#fff'});}
+  catch(_){w.textContent=myId;}
 }
 function doAddPeer(){
   const id=$('add-id').value.trim(), name=$('add-name').value.trim();
   if(!id){toast('Введи ID','err');return;}
-  addPeer(id,name); $('add-id').value=''; $('add-name').value=''; $('add-modal').classList.remove('on');
-}
-function doScanAdd(){
-  const id=$('scan-id').value.trim(), name=$('scan-name').value.trim();
-  if(!id){toast('Введи ID','err');return;}
-  addPeer(id,name); $('scan-id').value=''; $('scan-name').value=''; $('add-modal').classList.remove('on');
-}
-function addPeer(id,name){
   if(id===myId){toast('Это твой ID','err');return;}
   if(peers[id]){toast('Уже добавлено');return;}
-  peers[id]={id,name:name||id,online:false,emoji:randomEmoji()};
-  savePeers(); renderDeviceList(); toast('Добавлено: '+(name||id),'ok'); doPresence();
+  peers[id]={id,name:name||id,online:false,emoji:rndEmoji()};
+  savePeers(); renderDeviceList();
+  $('add-id').value=''; $('add-name').value='';
+  closeAddModal();
+  toast('Добавлено: '+(name||id),'ok');
+  doPresence();
 }
 
-// ── Copy ID ───────────────────────────────────────────
-function copyMyId(){
-  navigator.clipboard.writeText(myId).then(()=>toast('ID скопирован','ok')).catch(()=>toast(myId,''  ,5000));
-}
-
-// ── Files: toggle my/remote ───────────────────────────
-function fmSwitch(mode){
-  const isRemote=mode==='remote';
-  $('fm-local').style.display=isRemote?'none':'flex';
-  $('fm-remote').style.display=isRemote?'flex':'none';
-  $('fm-toggle-my').style.cssText='flex:1;padding:8px;font-family:inherit;font-size:11px;font-weight:700;border:none;cursor:pointer;'+(isRemote?'background:transparent;color:var(--mu);border-bottom:2px solid transparent':'background:var(--ad);color:var(--a);border-bottom:2px solid var(--a)');
-  $('fm-toggle-remote').style.cssText='flex:1;padding:8px;font-family:inherit;font-size:11px;font-weight:700;border:none;cursor:pointer;'+(isRemote?'background:var(--ad);color:var(--a);border-bottom:2px solid var(--a)':'background:transparent;color:var(--mu);border-bottom:2px solid transparent');
-  if(isRemote) fmCheckRemoteState();
-}
-
-function fmCheckRemoteState(){
-  const rtcOpen=rtcs[currentDevice]?.state==='open';
-  $('fm-ctrl-no-rtc').style.display=rtcOpen?'none':'flex';
-  $('fm-ctrl-open').style.display=rtcOpen?'flex':'none';
-  if(rtcOpen&&!$('fm-ctrl-list').children.length) fsCtrlStartBrowse();
-}
-
-function fsCtrlStartBrowse(){
-  _ctrlPath=[]; fsCtrlRefresh();
-}
-
-// ══════════════════════════════════════════════════════
-// FILE SYSTEM MODULE
-// ══════════════════════════════════════════════════════
-
-let _hostRoot=null, _hostCwd=null, _hostPath=[];
-const _hostXfer={};
-let _ctrlPath=[];
-const _ctrlReads={};
-
-// IDB
-async function fsSaveHandle(h){ try{ const db=await _fsDb(); const tx=db.transaction('handles','readwrite'); tx.objectStore('handles').put(h,'root'); await new Promise((r,j)=>{tx.oncomplete=r;tx.onerror=j;}); }catch(_){} }
-async function fsLoadHandle(){ try{ const db=await _fsDb(); return await new Promise((res)=>{ const tx=db.transaction('handles','readonly'); const req=tx.objectStore('handles').get('root'); req.onsuccess=()=>res(req.result||null); req.onerror=()=>res(null); }); }catch(_){return null;} }
-function _fsDb(){ return new Promise((res,rej)=>{ const r=indexedDB.open('tvrc_fs',1); r.onupgradeneeded=e=>e.target.result.createObjectStore('handles'); r.onsuccess=e=>res(e.target.result); r.onerror=rej; }); }
-
-async function fsPickFolder(){
-  if(!window.showDirectoryPicker){toast('File System API не поддерживается','err');return;}
-  try{
-    const h=await window.showDirectoryPicker({mode:'readwrite'});
-    _hostRoot=h; _hostCwd=h; _hostPath=[];
-    await fsSaveHandle(h);
-    fsHostRender(); toast('Папка открыта: '+h.name,'ok');
-  }catch(e){ if(e.name!=='AbortError')toast('Ошибка: '+e.message,'err'); }
-}
-
-async function fsRestoreFolder(){
-  const h=await fsLoadHandle(); if(!h){toast('Нет сохранённой папки','err');return;}
-  try{
-    const perm=await h.requestPermission({mode:'readwrite'});
-    if(perm==='granted'){ _hostRoot=h; _hostCwd=h; _hostPath=[]; fsHostRender(); toast('Доступ восстановлен: '+h.name,'ok'); }
-    else toast('Разрешение не получено','err');
-  }catch(e){toast('Ошибка: '+e.message,'err');}
-}
-
-async function fsHostRender(){
-  if(!_hostCwd){ $('fm-no-folder').style.display='flex'; $('fm-host-open').style.display='none'; return; }
-  $('fm-no-folder').style.display='none'; $('fm-host-open').style.display='flex';
-  $('fm-host-path').textContent='/'+_hostPath.join('/') || '/'+_hostRoot.name;
-  $('btn-go-up').disabled=_hostPath.length===0;
-  const list=$('fm-host-list');
-  list.innerHTML='<div class="fm-empty" style="padding:16px;font-size:11px">Загрузка...</div>';
-  const items=await fsReadDir(_hostCwd);
-  renderFmList(list,items,fsHostClick,fsHostLong);
-}
-
-async function fsReadDir(dh){
-  const items=[];
-  for await(const [name,h] of dh.entries()){
-    let size=null,modified=null;
-    if(h.kind!=='directory'){ try{const f=await h.getFile();size=f.size;modified=f.lastModified;}catch(_){} }
-    items.push({name,kind:h.kind,size,modified});
-  }
-  items.sort((a,b)=>{ if(a.kind!==b.kind)return a.kind==='directory'?-1:1; return a.name.localeCompare(b.name); });
-  return items;
-}
-
-function renderFmList(el,items,onClick,onLong){
-  if(!items.length){el.innerHTML='<div class="fm-empty">Папка пуста</div>';return;}
-  el.innerHTML='';
-  for(const item of items){
-    const d=document.createElement('div'); d.className='fm-item';
-    const meta=item.kind==='directory'?'':(item.size!=null?fmtSize(item.size)+(item.modified?'\n'+fmtDate(item.modified):''):'');
-    d.innerHTML=`<div class="fm-icon">${item.kind==='directory'?'📁':fileEmoji(item.name)}</div><div class="fm-name">${esc(item.name)}</div><div class="fm-meta">${esc(meta)}</div>`;
-    d.onclick=()=>onClick(item);
-    d.oncontextmenu=e=>{e.preventDefault();onLong(item,d);};
-    let lt; d.addEventListener('touchstart',()=>{lt=setTimeout(()=>onLong(item,d),600);},{passive:true}); d.addEventListener('touchend',()=>clearTimeout(lt),{passive:true});
-    el.appendChild(d);
-  }
-}
-
-async function fsHostClick(item){
-  if(item.kind==='directory'){ const s=await _hostCwd.getDirectoryHandle(item.name); _hostPath.push(item.name); _hostCwd=s; fsHostRender(); }
-  else fsHostMenu(item);
-}
-function fsHostLong(item){ fsHostMenu(item); }
-function fsHostMenu(item){
-  const isDir=item.kind==='directory';
-  ctxMenu([
-    ...(!isDir?[{label:'▶ Открыть',action:()=>fsHostOpenFile(item)}]:[]),
-    ...(!isDir?[{label:'✎ Редактировать',action:()=>fsHostEdit(item)}]:[]),
-    {label:'✏️ Переименовать',action:()=>fsHostRename(item)},
-    {label:'🗑 Удалить',action:()=>fsHostDelete(item)},
-  ]);
-}
-async function fsHostOpenFile(item){ try{ const fh=await _hostCwd.getFileHandle(item.name); const f=await fh.getFile(); window.open(URL.createObjectURL(f),'_blank'); toast('Открываю: '+item.name,'ok'); }catch(e){toast('Ошибка: '+e.message,'err');} }
-async function fsHostEdit(item){ try{ const fh=await _hostCwd.getFileHandle(item.name); const f=await fh.getFile(); const text=await f.text(); openEditor(item.name,text,async(t)=>{ const w=await fh.createWritable(); await w.write(t); await w.close(); toast('Сохранено','ok'); }); }catch(e){toast('Ошибка: '+e.message,'err');} }
-async function fsHostDelete(item){ if(!confirm('Удалить «'+item.name+'»?'))return; try{ await _hostCwd.removeEntry(item.name,{recursive:true}); fsHostRender(); toast('Удалено','ok'); }catch(e){toast('Ошибка: '+e.message,'err');} }
-async function fsHostRename(item){ const n=prompt('Новое имя:',item.name); if(!n||n===item.name)return; if(item.kind==='directory'){toast('Переименование папок не поддерживается','err');return;} try{ const s=await _hostCwd.getFileHandle(item.name); const sf=await s.getFile(); const df=await _hostCwd.getFileHandle(n,{create:true}); const w=await df.createWritable(); await w.write(await sf.arrayBuffer()); await w.close(); await _hostCwd.removeEntry(item.name); fsHostRender(); toast('Переименовано','ok'); }catch(e){toast('Ошибка: '+e.message,'err');} }
-async function fsMkdir(){ const n=prompt('Имя папки:'); if(!n)return; try{ await _hostCwd.getDirectoryHandle(n,{create:true}); fsHostRender(); toast('Папка создана','ok'); }catch(e){toast('Ошибка: '+e.message,'err');} }
-async function fsNewFile(){ const n=prompt('Имя файла:'); if(!n)return; try{ const fh=await _hostCwd.getFileHandle(n,{create:true}); const w=await fh.createWritable(); await w.write(''); await w.close(); fsHostRender(); openEditor(n,'',async(t)=>{ const w2=await fh.createWritable(); await w2.write(t); await w2.close(); toast('Сохранено','ok'); }); }catch(e){toast('Ошибка: '+e.message,'err');} }
-async function fsGoUp(){ if(!_hostPath.length)return; _hostPath.pop(); _hostCwd=_hostRoot; for(const s of _hostPath) _hostCwd=await _hostCwd.getDirectoryHandle(s); fsHostRender(); }
-
-// Host: execute FS commands from controller
-async function fsExecList(from,msg){ if(!_hostRoot){dcSend(from,{type:'fs_err',reqId:msg.reqId,error:'Папка не открыта'});return;} try{ let dir=_hostRoot; const segs=(msg.path||'').split('/').filter(Boolean); for(const s of segs)dir=await dir.getDirectoryHandle(s); const items=await fsReadDir(dir); dcSend(from,{type:'fs_list_res',reqId:msg.reqId,path:msg.path||'/',items}); }catch(e){dcSend(from,{type:'fs_err',reqId:msg.reqId,error:e.message});} }
-async function fsExecRead(from,msg){ if(!_hostRoot){dcSend(from,{type:'fs_err',reqId:msg.reqId,error:'Нет доступа'});return;} try{ const segs=msg.path.split('/').filter(Boolean); let dir=_hostRoot; for(let i=0;i<segs.length-1;i++)dir=await dir.getDirectoryHandle(segs[i]); const fh=await dir.getFileHandle(segs[segs.length-1]); const f=await fh.getFile(); const CHUNK=48*1024; let off=0,idx=0; while(off<f.size){ const ab=await f.slice(off,off+CHUNK).arrayBuffer(); const b64=btoa(String.fromCharCode(...new Uint8Array(ab))); dcSend(from,{type:'fs_read_chunk',reqId:msg.reqId,idx,b64,total:f.size,name:f.name,mime:f.type||'application/octet-stream'}); off+=CHUNK;idx++; } dcSend(from,{type:'fs_read_end',reqId:msg.reqId,total:f.size,name:f.name}); }catch(e){dcSend(from,{type:'fs_err',reqId:msg.reqId,error:e.message});} }
-async function fsExecWrite(from,msg){ if(!_hostRoot){dcSend(from,{type:'fs_err',reqId:msg.reqId,error:'Нет доступа'});return;} try{ const segs=msg.path.split('/').filter(Boolean); let dir=_hostRoot; for(let i=0;i<segs.length-1;i++)dir=await dir.getDirectoryHandle(segs[i],{create:true}); const fh=await dir.getFileHandle(segs[segs.length-1],{create:true}); const w=await fh.createWritable(); await w.write(Uint8Array.from(atob(msg.b64),c=>c.charCodeAt(0))); await w.close(); dcSend(from,{type:'fs_ok',reqId:msg.reqId,msg:'written'}); fsHostRender(); }catch(e){dcSend(from,{type:'fs_err',reqId:msg.reqId,error:e.message});} }
-async function fsExecDelete(from,msg){ if(!_hostRoot){dcSend(from,{type:'fs_err',reqId:msg.reqId,error:'Нет доступа'});return;} try{ const segs=msg.path.split('/').filter(Boolean); let dir=_hostRoot; for(let i=0;i<segs.length-1;i++)dir=await dir.getDirectoryHandle(segs[i]); await dir.removeEntry(segs[segs.length-1],{recursive:true}); dcSend(from,{type:'fs_ok',reqId:msg.reqId,msg:'deleted'}); fsHostRender(); }catch(e){dcSend(from,{type:'fs_err',reqId:msg.reqId,error:e.message});} }
-async function fsExecMkdir(from,msg){ if(!_hostRoot){dcSend(from,{type:'fs_err',reqId:msg.reqId,error:'Нет доступа'});return;} try{ const segs=msg.path.split('/').filter(Boolean); let dir=_hostRoot; for(const s of segs)dir=await dir.getDirectoryHandle(s,{create:true}); dcSend(from,{type:'fs_ok',reqId:msg.reqId,msg:'created'}); fsHostRender(); }catch(e){dcSend(from,{type:'fs_err',reqId:msg.reqId,error:e.message});} }
-async function fsExecRename(from,msg){ if(!_hostRoot){dcSend(from,{type:'fs_err',reqId:msg.reqId,error:'Нет доступа'});return;} try{ const segs=msg.oldPath.split('/').filter(Boolean); let dir=_hostRoot; for(let i=0;i<segs.length-1;i++)dir=await dir.getDirectoryHandle(segs[i]); const n=segs[segs.length-1]; const sf=await(await dir.getFileHandle(n)).getFile(); const df=await dir.getFileHandle(msg.newName,{create:true}); const w=await df.createWritable(); await w.write(await sf.arrayBuffer()); await w.close(); await dir.removeEntry(n); dcSend(from,{type:'fs_ok',reqId:msg.reqId,msg:'renamed'}); fsHostRender(); }catch(e){dcSend(from,{type:'fs_err',reqId:msg.reqId,error:e.message});} }
-async function fsExecOpen(from,msg){ if(!_hostRoot){dcSend(from,{type:'fs_err',reqId:msg.reqId,error:'Нет доступа'});return;} try{ const segs=msg.path.split('/').filter(Boolean); let dir=_hostRoot; for(let i=0;i<segs.length-1;i++)dir=await dir.getDirectoryHandle(segs[i]); const fh=await dir.getFileHandle(segs[segs.length-1]); const f=await fh.getFile(); window.open(URL.createObjectURL(f),'_blank'); dcSend(from,{type:'fs_ok',reqId:msg.reqId,msg:'opened'}); toast('Открываю: '+f.name,'ok'); }catch(e){dcSend(from,{type:'fs_err',reqId:msg.reqId,error:e.message});} }
-function fsExecChunk(from,msg){ if(!_hostXfer[msg.reqId])_hostXfer[msg.reqId]={chunks:[],total:msg.total,name:msg.name,path:msg.path}; _hostXfer[msg.reqId].chunks.push(msg.b64); const pct=Math.round(_hostXfer[msg.reqId].chunks.length*48*1024/msg.total*100); _showHostXfer(msg.name,Math.min(pct,99)); }
-async function fsExecChunkEnd(from,msg){ const xfer=_hostXfer[msg.reqId]; if(!xfer)return; delete _hostXfer[msg.reqId]; try{ const all=new Uint8Array(xfer.chunks.reduce((a,b64)=>a+Uint8Array.from(atob(b64),c=>c.charCodeAt(0)).length,0)); let off=0; for(const b64 of xfer.chunks){const bytes=Uint8Array.from(atob(b64),c=>c.charCodeAt(0));all.set(bytes,off);off+=bytes.length;} const segs=xfer.path.split('/').filter(Boolean); let dir=_hostRoot; for(let i=0;i<segs.length-1;i++)dir=await dir.getDirectoryHandle(segs[i],{create:true}); const fh=await dir.getFileHandle(segs[segs.length-1],{create:true}); const w=await fh.createWritable(); await w.write(all); await w.close(); dcSend(from,{type:'fs_ok',reqId:msg.reqId,msg:'received'}); _showHostXfer(xfer.name,100); setTimeout(()=>{_hideHostXfer();fsHostRender();},1000); toast('Получен: '+xfer.name,'ok'); }catch(e){dcSend(from,{type:'fs_err',reqId:msg.reqId,error:e.message});} }
-function _showHostXfer(name,pct){ $('host-xfer-bar').classList.add('on'); $('host-xfer-name').textContent=name; $('host-xfer-pct').textContent=pct+'%'; $('host-xfer-fill').style.width=pct+'%'; }
-function _hideHostXfer(){ $('host-xfer-bar').classList.remove('on'); }
-
-// Controller: browse remote FS
-async function fsCtrlRefresh(){ if(!currentDevice)return; const path='/'+_ctrlPath.join('/'); $('fm-ctrl-list').innerHTML='<div class="fm-empty">Загрузка...</div>'; $('fm-ctrl-path').textContent=path||'/'; $('btn-ctrl-up').disabled=_ctrlPath.length===0; dcSend(currentDevice,{type:'fs_list',reqId:'ls'+Date.now(),path}); }
-function fsCtrlHandleList(msg){ if(!msg.items)return; $('fm-ctrl-path').textContent=msg.path||'/'; renderFmList($('fm-ctrl-list'),msg.items,fsCtrlClick,fsCtrlLong); }
-function fsCtrlClick(item){ if(item.kind==='directory'){_ctrlPath.push(item.name);fsCtrlRefresh();}else fsCtrlMenu(item); }
-function fsCtrlLong(item){ fsCtrlMenu(item); }
-function fsCtrlMenu(item){ const path='/'+[..._ctrlPath,item.name].join('/'); const isDir=item.kind==='directory'; ctxMenu([ ...(!isDir?[{label:'▶ Открыть на устройстве',action:()=>fsCtrlOpen(path,item.name)}]:[]), ...(!isDir?[{label:'⬇ Скачать',action:()=>fsCtrlDownload(path,item.name)}]:[]), ...(!isDir?[{label:'✎ Редактировать',action:()=>fsCtrlEdit(path,item.name)}]:[]), {label:'✏️ Переименовать',action:()=>fsCtrlRename(path,item.name)}, {label:'🗑 Удалить',action:()=>fsCtrlDelete(path,item.name)}, ]); }
-function fsCtrlOpen(path,name){ dcSend(currentDevice,{type:'fs_open',reqId:'o'+Date.now(),path}); rlog('→ открыть '+name,'ok'); }
-function fsCtrlDelete(path,name){ if(!confirm('Удалить «'+name+'»?'))return; dcSend(currentDevice,{type:'fs_delete',reqId:'d'+Date.now(),path}); }
-function fsCtrlRename(path,name){ const n=prompt('Новое имя:',name); if(!n||n===name)return; dcSend(currentDevice,{type:'fs_rename',reqId:'r'+Date.now(),oldPath:path,newName:n}); }
-function fsCtrlGoUp(){ if(!_ctrlPath.length)return; _ctrlPath.pop(); fsCtrlRefresh(); }
-function fsCtrlMkdir(){ const n=prompt('Имя папки:'); if(!n)return; dcSend(currentDevice,{type:'fs_mkdir',reqId:'m'+Date.now(),path:'/'+[..._ctrlPath,n].join('/')}); }
-function fsCtrlNewFile(){ const n=prompt('Имя файла:'); if(!n)return; const path='/'+[..._ctrlPath,n].join('/'); openEditor(n,'',async(text)=>{ const b64=btoa(unescape(encodeURIComponent(text))); dcSend(currentDevice,{type:'fs_write',reqId:'w'+Date.now(),path,b64}); }); }
-function fsCtrlEdit(path,name){ const reqId='e'+Date.now(); _ctrlReads[reqId]={chunks:[],total:0,name,isEdit:true,path}; dcSend(currentDevice,{type:'fs_read',reqId,path}); }
-function fsCtrlDownload(path,name){ const reqId='dl'+Date.now(); _ctrlReads[reqId]={chunks:[],total:0,name,isEdit:false,path}; dcSend(currentDevice,{type:'fs_read',reqId,path}); }
-function fsCtrlHandleReadChunk(msg){ const r=_ctrlReads[msg.reqId]; if(!r)return; r.chunks.push(msg.b64); r.total=msg.total; const pct=Math.round(r.chunks.length*48*1024/msg.total*100); _showCtrlXfer(r.name,Math.min(pct,99)); }
-function fsCtrlHandleReadEnd(msg){ const r=_ctrlReads[msg.reqId]; if(!r)return; delete _ctrlReads[msg.reqId]; _showCtrlXfer(r.name,100); setTimeout(()=>_hideCtrlXfer(),1000); const all=new Uint8Array(r.chunks.reduce((a,b64)=>a+Uint8Array.from(atob(b64),c=>c.charCodeAt(0)).length,0)); let off=0; for(const b64 of r.chunks){const bytes=Uint8Array.from(atob(b64),c=>c.charCodeAt(0));all.set(bytes,off);off+=bytes.length;} if(r.isEdit){ openEditor(r.name,new TextDecoder().decode(all),async(text)=>{ const b64=btoa(unescape(encodeURIComponent(text))); dcSend(currentDevice,{type:'fs_write',reqId:'w'+Date.now(),path:r.path,b64}); setTimeout(()=>fsCtrlRefresh(),300); }); }else{ const blob=new Blob([all]); const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download=r.name; a.click(); setTimeout(()=>URL.revokeObjectURL(url),5000); toast('Скачано: '+r.name,'ok'); } }
-function fsCtrlHandleOk(msg){ rlog('← OK: '+msg.msg,'ok'); toast(msg.msg||'Готово','ok'); if(['written','deleted','renamed','created','received'].includes(msg.msg)) setTimeout(()=>fsCtrlRefresh(),200); }
-function fsCtrlHandleErr(msg){ rlog('← FS ошибка: '+msg.error,'err'); toast('Ошибка: '+msg.error,'err'); }
-function _showCtrlXfer(name,pct){ $('ctrl-xfer-bar').classList.add('on'); $('ctrl-xfer-name').textContent=name; $('ctrl-xfer-pct').textContent=pct+'%'; $('ctrl-xfer-fill').style.width=pct+'%'; }
-function _hideCtrlXfer(){ $('ctrl-xfer-bar').classList.remove('on'); }
-
-// File type icons
-function fileEmoji(n){ const e=(n.split('.').pop()||'').toLowerCase(); return {js:'📜',ts:'📜',jsx:'📜',tsx:'📜',html:'🌐',css:'🎨',json:'📋',yaml:'📋',yml:'📋',md:'📝',txt:'📝',png:'🖼',jpg:'🖼',jpeg:'🖼',gif:'🖼',webp:'🖼',svg:'🖼',mp4:'🎬',mov:'🎬',webm:'🎬',mp3:'🎵',wav:'🎵',m4a:'🎵',pdf:'📕',zip:'📦',gz:'📦',tar:'📦',sh:'⚙️',py:'🐍',rb:'💎',go:'🐹',rs:'🦀',exe:'⚙️',dmg:'💿'}[e]||'📄'; }
-
-// ── Editor ────────────────────────────────────────────
-let _editorSave=null;
-function openEditor(name,text,onSave){ _editorSave=onSave; $('editor-fname').textContent=name; $('editor-ta').value=text; $('editor-modal').classList.add('on'); $('editor-ta').focus(); }
-async function editorSave(){ if(!_editorSave)return; const btn=$('btn-editor-save'); btn.disabled=true; btn.textContent='⏳'; try{await _editorSave($('editor-ta').value);}catch(e){toast('Ошибка: '+e.message,'err');} btn.disabled=false; btn.textContent='💾 Сохранить'; }
-function closeEditor(){ $('editor-modal').classList.remove('on'); _editorSave=null; }
-
-// ── Context menu ──────────────────────────────────────
-let _ctx=null;
-function ctxMenu(items){
-  if(_ctx){_ctx.remove();_ctx=null;}
-  const m=document.createElement('div');
-  m.style.cssText='position:fixed;bottom:0;left:0;right:0;z-index:400;background:var(--sf);border-top:1px solid var(--bd);border-radius:16px 16px 0 0;padding:8px 0 calc(8px + env(safe-area-inset-bottom,0px));animation:slideUp .2s ease';
-  for(const it of items){ const b=document.createElement('button'); b.style.cssText='width:100%;padding:14px 20px;background:none;border:none;color:var(--tx);font-family:inherit;font-size:13px;text-align:left;cursor:pointer'; b.textContent=it.label; b.onclick=()=>{m.remove();_ctx=null;it.action();}; m.appendChild(b); }
-  const c=document.createElement('button'); c.style.cssText='width:100%;padding:14px 20px;background:none;border:none;color:var(--mu);font-family:inherit;font-size:12px;text-align:center;cursor:pointer;border-top:1px solid var(--bd);margin-top:4px'; c.textContent='Отмена'; c.onclick=()=>{m.remove();_ctx=null;}; m.appendChild(c);
-  document.body.appendChild(m); _ctx=m;
-  const dismiss=e=>{if(!m.contains(e.target)){m.remove();_ctx=null;document.removeEventListener('touchstart',dismiss);document.removeEventListener('mousedown',dismiss);}};
-  setTimeout(()=>{document.addEventListener('touchstart',dismiss,{passive:true});document.addEventListener('mousedown',dismiss);},100);
-}
-
-// ── Send: audio ──────────────────────────────────────
-function sendAudioRecord(sec){
-  if(!dcSend(currentDevice,{type:'remote_audio_record',duration:sec,reqId:'a'+Date.now()}))return;
-  rlog('→ запись '+sec+'с...','ok');
-  toast('Записываю '+sec+'с...');
-}
-function ctrlHandleAudio(msg){
-  const bytes=Uint8Array.from(atob(msg.b64),c=>c.charCodeAt(0));
-  const url=URL.createObjectURL(new Blob([bytes],{type:msg.mime||'audio/webm'}));
-  let pw=$('audio-player-wrap');
-  if(!pw){
-    pw=document.createElement('div');
-    pw.id='audio-player-wrap';
-    pw.style.marginBottom='4px';
-    $('r-log').before(pw);
-  }
-  const sec=Math.round(msg.duration/1000);
-  const wrap=document.createElement('div');
-  wrap.style.cssText='background:var(--bg);border:1px solid var(--bd);border-radius:10px;padding:10px 12px;display:flex;align-items:center;gap:8px';
-  const icon=document.createElement('span'); icon.style.fontSize='16px'; icon.textContent='🎤';
-  const audio=document.createElement('audio'); audio.controls=true; audio.src=url; audio.style.cssText='flex:1;height:32px;min-width:0';
-  const dl=document.createElement('button'); dl.textContent='⬇️'; dl.title='Сохранить';
-  dl.style.cssText='background:none;border:none;font-size:16px;cursor:pointer;color:var(--a)';
-  dl.onclick=()=>saveAudio(url);
-  wrap.append(icon,audio,dl); pw.innerHTML=''; pw.appendChild(wrap);
-  rlog('← аудио ('+sec+'с)','in'); toast('Аудио получено','ok');
-}
-function saveAudio(url){
-  const a=document.createElement('a');
-  a.href=url; a.download='audio_'+Date.now()+'.webm'; a.click();
-}
-
-// ── Share target ──────────────────────────────────────
-async function handleShareTarget(){
-  try{
-    const cache=await caches.open('share-target');
-    const keys=await cache.keys();
-    if(!keys.length) return;
-    const files=[];
-    for(const req of keys){
-      const res=await cache.match(req);
-      const blob=await res.blob();
-      files.push(new File([blob],req.url.split('/').pop()||'file',{type:blob.type}));
-      await cache.delete(req);
-    }
-    if(!files.length) return;
-    window._sharedFiles=files;
-    toast('Получено '+files.length+' файл(ов)','ok',4000);
-    if(currentDevice) _sendSharedFiles();
-    else toast('Открой устройство чтобы отправить','',4000);
-  }catch(e){dbg('share-target: '+e.message,'err');}
-}
-async function _sendSharedFiles(){
-  const files=window._sharedFiles;
-  if(!files?.length||!currentDevice) return;
-  window._sharedFiles=null;
-  for(const f of files) await fsCtrlSendFileObj(f);
-}
-async function fsCtrlSendFileObj(file){
-  const path='/'+[..._ctrlPath,file.name].join('/');
-  const CHUNK=48*1024, reqId='push'+Date.now();
-  let off=0, idx=0;
-  _showCtrlXfer(file.name,0);
-  while(off<file.size){
-    const ab=await file.slice(off,off+CHUNK).arrayBuffer();
-    const b64=btoa(String.fromCharCode(...new Uint8Array(ab)));
-    dcSend(currentDevice,{type:'fs_chunk',reqId,idx,b64,total:file.size,name:file.name,path});
-    off+=CHUNK; idx++;
-    _showCtrlXfer(file.name,Math.min(Math.round(off/file.size*100),99));
-    await new Promise(r=>setTimeout(r,0));
-  }
-  dcSend(currentDevice,{type:'fs_chunk_end',reqId,name:file.name,path});
-  _showCtrlXfer(file.name,100);
-  setTimeout(()=>_hideCtrlXfer(),1500);
-  rlog('⬆ '+file.name,'ok');
-}
-
-// ── Agent (local HTTP server) ─────────────────────────
-let _agentUrl = 'http://localhost:7070';
-let _agentCwd = '';
-
+// ════════════════════════════════════════════
+// AGENT
+// ════════════════════════════════════════════
 async function agentFetch(endpoint, body=null){
-  const url = _agentUrl.replace(/\/+$/, '') + endpoint;
-  const opts = body
-    ? {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)}
-    : {method:'GET'};
-  agentLog('→ fetch '+url);
+  const url=_agentUrl.replace(/\/+$/,'')+endpoint;
+  const opts=body
+    ?{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}
+    :{method:'GET'};
+  alog('→ '+url);
   try{
-    const r = await fetch(url, opts);
-    agentLog('← '+r.status+' '+r.statusText);
+    const r=await fetch(url,opts);
+    alog('← '+r.status);
     if(!r.ok) throw new Error('HTTP '+r.status);
-    const json = await r.json();
-    return json;
+    return r.json();
   }catch(e){
-    agentLog('✗ '+e.message);
+    alog('✗ '+e.message);
     throw e;
   }
 }
 
-function agentLog(msg){
-  const el = $('agent-debug-log');
-  if(!el) return;
-  const ts = new Date().toLocaleTimeString('ru',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
-  el.textContent = ts+' '+msg+'\n'+el.textContent.slice(0,800);
-}
-
 async function agentConnect(){
-  const url = $('agent-url')?.value?.trim();
-  if(url) _agentUrl = url;
-  const btn = $('agent-connect-btn');
-  const status = $('agent-status');
-  btn.disabled = true; btn.textContent = '...';
+  const url=$('agent-url')?.value?.trim();
+  if(url) _agentUrl=url;
+  const btn=$('btn-agent-connect'), st=$('agent-status');
+  btn.disabled=true; btn.textContent='...';
   try{
-    const info = await agentFetch('/');
-    _agentCwd = info.cwd || '';
-    status.style.color = 'var(--a)';
-    status.textContent = '● подключён';
-    const infoEl = $('agent-info');
-    infoEl.style.display = '';
-    let infoHtml = '<b style="color:var(--tx)">Платформа:</b> '+esc(info.platform)
+    const info=await agentFetch('/');
+    _agentCwd=info.cwd||'';
+    st.style.color='var(--a)'; st.textContent='● подключён';
+    $('agent-install').style.display='none';
+    const inf=$('agent-info');
+    inf.style.display='';
+    inf.innerHTML='<b style="color:var(--tx)">Платформа:</b> '+esc(info.platform)
       +' &nbsp; <b style="color:var(--tx)">Python:</b> '+esc(info.python||'?')
-      +'<br><b style="color:var(--tx)">Папка:</b> '+esc(info.cwd||'?');
-    if(info.termux){
-      infoHtml += '<br><span style="color:var(--a)">📱 Termux</span>';
-      if(!info.storage){
-        infoHtml += ' &nbsp; <span style="color:var(--w)">⚠ нет доступа к /sdcard</span>'
-          +'<br><code style="color:var(--w);font-size:10px">termux-setup-storage</code>'
-          +' <span style="opacity:.6">— запусти для доступа к файлам телефона</span>';
-      } else {
-        infoHtml += ' &nbsp; <span style="color:var(--mu)">✓ /sdcard доступен</span>';
-      }
-    }
-    infoEl.innerHTML = infoHtml;
-    $('agent-term').style.display = 'flex';
-    $('agent-cwd').textContent = '📁 '+_agentCwd;
-    $('agent-install-hint').style.display = 'none';
-    await agentRefreshLs();
+      +'<br><b style="color:var(--tx)">Папка:</b> '+esc(info.cwd||'?')
+      +(info.termux?'<br><span style="color:var(--a)">📱 Termux</span>'
+        +(info.storage?'<span style="opacity:.6"> ✓ /sdcard</span>':'<span style="color:var(--w)"> ⚠ нет /sdcard</span>'):'');
+    $('agent-term').style.display='flex';
+    $('agent-cwd').textContent='📁 '+_agentCwd;
+    await agentLs();
     toast('Агент подключён','ok');
-    agentLog('← Агент: '+info.platform+' '+info.cwd,'ok');
   }catch(e){
-    agentLog('✗ agentConnect: '+e.message+' '+e.stack?.split('\n')[1]);
-    status.style.color = 'var(--e)';
-    status.textContent = '✗ недоступен';
+    st.style.color='var(--e)'; st.textContent='✗ недоступен';
     $('agent-info').style.display='none';
     $('agent-term').style.display='none';
-    toast('Агент недоступен — запусти agent.py на устройстве','err',4000);
-    agentLog('← Агент: '+e.message,'err');
+    toast('Агент недоступен','err',4000);
   }
-  btn.disabled=false; btn.textContent='Проверить';
+  btn.disabled=false; btn.textContent='Подключить';
 }
 
-async function agentRefreshLs(){
+async function agentLs(){
   try{
-    const data = await agentFetch('/ls');
-    _agentCwd = data.cwd;
-    $('agent-cwd').textContent = '📁 '+_agentCwd;
-    const ls = $('agent-ls');
-    if(!data.entries?.length){ ls.innerHTML='<div style="padding:8px 10px;font-size:11px;color:var(--mu)">Пусто</div>'; return; }
-    ls.innerHTML = data.entries.map(e=>{
-      const icon = e.type==='dir' ? '📁' : fileEmoji(e.name);
-      const size = e.size!=null ? ' <span style="opacity:.5">'+fmtSize(e.size)+'</span>' : '';
-      // Termux storage shortcuts have absolute _path
-      const cdArg = e._path || e.name;
-      const action = e.type==='dir'
-        ? `agentCd('${cdArg.replace(/'/g,"\'")}')`
-        : `agentOpenOrEdit('${e.name.replace(/'/g,"\'")}')`;
-      return `<div onclick="${action}" style="display:flex;align-items:center;gap:8px;padding:7px 10px;border-bottom:1px solid rgba(44,44,66,.4);cursor:pointer;font-size:12px" onmouseenter="this.style.background='var(--ad)'" onmouseleave="this.style.background=''">
-        <span style="font-size:16px;flex-shrink:0">${icon}</span>
+    const data=await agentFetch('/ls');
+    _agentCwd=data.cwd;
+    const display=_agentCwd
+      .replace(/^\/data\/data\/com\.termux\/files\/home\/storage\/shared/,'/sdcard')
+      .replace(/^\/data\/data\/com\.termux\/files\/home/,'~');
+    $('agent-cwd').textContent='📁 '+display;
+    const ls=$('agent-ls');
+    if(!data.entries?.length){ls.innerHTML='<div class="ls-item" style="color:var(--mu);font-size:11px">Пусто</div>';return;}
+    ls.innerHTML=data.entries.map(e=>{
+      const icon=e.type==='dir'?'📁':fileEmoji(e.name);
+      const sz=e.size!=null?'<span style="opacity:.5;margin-left:auto">'+fmtSz(e.size)+'</span>':'';
+      const arg=JSON.stringify(e._path||e.name);
+      const fn=e.type==='dir'?`agentCd(${arg})`:`agentOpen(${arg})`;
+      return `<div class="ls-item" onclick="${fn}">
+        <span style="font-size:16px">${icon}</span>
         <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(e.name)}</span>
-        ${size}
+        ${sz}
       </div>`;
     }).join('');
-  }catch(e){ agentLog('Агент ls: '+e.message,'err'); }
+  }catch(e){alog('ls error: '+e.message);}
 }
 
 async function agentCd(path){
   try{
-    const data = await agentFetch('/cd', {path});
-    _agentCwd = data.cwd;
-    // Show friendly path name
-    const display = _agentCwd.replace(/^\/data\/data\/com\.termux\/files\/home\/storage\/shared/,'/sdcard')
-                              .replace(/^\/data\/data\/com\.termux\/files\/home/,'~');
-    $('agent-cwd').textContent = '📁 '+display;
-    await agentRefreshLs();
-  }catch(e){ toast('Ошибка: '+e.message,'err'); }
+    const d=await agentFetch('/cd',{path});
+    _agentCwd=d.cwd;
+    await agentLs();
+  }catch(e){toast('Ошибка: '+e.message,'err');}
 }
 
 async function agentRun(){
-  const inp = $('agent-cmd');
-  const cmd = inp.value.trim();
+  const inp=$('agent-cmd'), cmd=inp.value.trim();
   if(!cmd) return;
-  inp.value = '';
-  const out = $('agent-output');
-  out.style.display = '';
-  out.textContent = '⏳ '+cmd+'...';
-  out.style.color = 'var(--mu)';
-  agentLog('→ agent run: '+cmd,'ok');
+  inp.value='';
+  const out=$('agent-output');
+  out.style.display=''; out.textContent='⏳ '+cmd+'...'; out.style.color='var(--mu)';
   try{
-    const data = await agentFetch('/run', {cmd, cwd:_agentCwd, timeout:30});
-    const text = (data.stdout||'') + (data.stderr ? '\n[stderr] '+data.stderr : '');
-    out.textContent = text || '(нет вывода)';
-    out.style.color = data.code===0 ? 'var(--a)' : 'var(--e)';
-    agentLog('← agent ['+data.code+']: '+(text||'ok').slice(0,60),'in');
-    // Refresh file list after command
-    await agentRefreshLs();
+    const d=await agentFetch('/run',{cmd,cwd:_agentCwd,timeout:30});
+    const txt=(d.stdout||'')+(d.stderr?'\n[stderr] '+d.stderr:'');
+    out.textContent=txt||'(нет вывода)';
+    out.style.color=d.code===0?'var(--a)':'var(--e)';
+    await agentLs();
   }catch(e){
-    out.textContent = 'Ошибка: '+e.message;
-    out.style.color = 'var(--e)';
-    agentLog('← agent error: '+e.message,'err');
+    out.textContent='Ошибка: '+e.message;
+    out.style.color='var(--e)';
   }
 }
 
-async function agentOpenOrEdit(name){
-  const ext = name.split('.').pop().toLowerCase();
-  const textExts = ['txt','md','js','ts','py','sh','json','yaml','yml','html','css','xml','csv','log','conf','ini','toml','rs','go','rb','java','c','cpp','h'];
-  if(textExts.includes(ext)){
-    // Edit text file
-    try{
-      const data = await agentFetch('/read', {path:name});
-      openEditor(name, data.content, async(text)=>{
-        await agentFetch('/write', {path:name, content:text});
-        toast('Сохранено: '+name,'ok');
-        agentLog('← agent write: '+name,'ok');
-      });
-    }catch(e){ toast('Ошибка чтения: '+e.message,'err'); }
+function agentOpen(name){
+  const ext=name.split('.').pop().toLowerCase();
+  const txt=['txt','md','js','ts','py','sh','json','yaml','yml','html','css','xml','csv','log','conf','ini','toml','rs','go','rb','java','c','cpp','h'];
+  if(txt.includes(ext)){
+    agentFetch('/read',{path:name}).then(d=>{
+      // Simple inline editor via prompt
+      const newText=prompt('Редактирование: '+name, d.content);
+      if(newText!==null) agentFetch('/write',{path:name,content:newText}).then(()=>toast('Сохранено','ok'));
+    }).catch(e=>toast('Ошибка: '+e.message,'err'));
   } else {
-    // Open with system
-    ctxMenu([
-      {label:'▶ Открыть системно', action:async()=>{
-        try{
-          await agentFetch('/open', {path:name});
-          toast('Открываю: '+name,'ok');
-        }catch(e){toast('Ошибка: '+e.message,'err');}
-      }},
-      {label:'▶ Выполнить как команду', action:()=>{
-        $('agent-cmd').value = './'+name;
-        agentRun();
-      }},
-    ]);
+    agentFetch('/open',{path:name}).then(()=>toast('Открываю...','ok')).catch(e=>toast('Ошибка: '+e.message,'err'));
   }
 }
 
-// ── Screen mirror ────────────────────────────────────
-let _screenRunning = false;
-let _screenQuality = 65;
-let _screenFrameTs = 0;
-let _screenFpsCount = 0;
-let _screenFpsTs    = 0;
-let _screenW = 1;    // реальное разрешение устройства
-let _screenH = 1;
-// pointer tracking для свайпов
-let _screenPtrDown   = false;
-let _screenPtrDownX  = 0;
-let _screenPtrDownY  = 0;
-let _screenPtrDownTs = 0;
-
-function screenCheckAgent(){
-  return !!_agentUrl;
+function fileEmoji(n){
+  const e=(n.split('.').pop()||'').toLowerCase();
+  return {js:'📜',ts:'📜',py:'🐍',sh:'⚙️',html:'🌐',css:'🎨',json:'📋',
+          md:'📝',txt:'📝',png:'🖼',jpg:'🖼',jpeg:'🖼',gif:'🖼',webp:'🖼',
+          mp4:'🎬',mp3:'🎵',pdf:'📕',zip:'📦',gz:'📦',tar:'📦',
+          go:'🐹',rs:'🦀',rb:'💎'}[e]||'📄';
 }
 
-async function screenStart(){
-  // Получаем разрешение экрана
-  try{
-    const info = await agentFetch('/screeninfo');
-    _screenW = info.width  || 1080;
-    _screenH = info.height || 1920;
-    $('screen-res').textContent = _screenW + '×' + _screenH;
-  }catch(_){}
-
-  _screenRunning = true;
-  _screenFpsTs   = performance.now();
-  _screenFpsCount = 0;
-  $('screen-toggle-btn').textContent = '⏹ Стоп';
-  $('screen-toggle-btn').style.background = 'var(--e)';
-
-  const img = $('screen-img');
-  const streamUrl = _agentUrl.replace(/\/+$/,'') + '/stream?q=' + _screenQuality;
-  img.src = streamUrl;
-  img.onload = () => {};
-  // FPS-счётчик через MutationObserver не нужен — считаем через error/load не сработает для MJPEG
-  // Используем requestAnimationFrame + проверку naturalWidth (смена кадра меняет decode timestamp)
-  _screenFpsCount = 0;
-  _screenFpsTs = performance.now();
-  _screenLastNaturalSrc = '';
-  _screenAnimLoop();
+// ════════════════════════════════════════════
+// SCREEN MIRROR
+// ════════════════════════════════════════════
+function scrNorm(e){
+  const img=$('screen-img'), rect=img.getBoundingClientRect();
+  const ia=_scrW/_scrH, ba=rect.width/rect.height;
+  let dW,dH,oX,oY;
+  if(ia>ba){dW=rect.width;dH=rect.width/ia;oX=0;oY=(rect.height-dH)/2;}
+  else{dH=rect.height;dW=rect.height*ia;oY=0;oX=(rect.width-dW)/2;}
+  return{
+    x:Math.max(0,Math.min(1,(e.clientX-rect.left-oX)/dW)),
+    y:Math.max(0,Math.min(1,(e.clientY-rect.top-oY)/dH))
+  };
 }
 
-let _screenLastNaturalSrc = '';
-function _screenAnimLoop(){
-  if(!_screenRunning) return;
-  const img = $('screen-img');
-  // Простой FPS через счёт decode событий невозможен для <img> MJPEG
-  // Считаем через периодическую проверку currentSrc + времени
-  _screenFpsCount++;
-  const now = performance.now();
-  if(now - _screenFpsTs >= 1000){
-    $('screen-fps').textContent = _screenFpsCount + ' fps';
-    _screenFpsCount = 0;
-    _screenFpsTs = now;
-  }
-  requestAnimationFrame(_screenAnimLoop);
+function scrFlash(e){
+  const fl=$('screen-tap-flash'), img=$('screen-img'), rect=img.getBoundingClientRect();
+  fl.style.left=(e.clientX-rect.left)+'px';
+  fl.style.top=(e.clientY-rect.top)+'px';
+  fl.style.display='block'; fl.style.opacity='1';
+  setTimeout(()=>{fl.style.opacity='0';setTimeout(()=>fl.style.display='none',300);},150);
 }
 
-function screenStop(){
-  _screenRunning = false;
-  const img = $('screen-img');
-  img.src = '';
-  $('screen-toggle-btn').textContent = '▶ Старт';
-  $('screen-toggle-btn').style.background = '';
-  $('screen-fps').textContent = '— fps';
-}
-
-function screenToggle(){
-  // Если есть currentDevice — стримим через DC, иначе локально через агент
-  if(_screenRunning){
-    if(currentDevice) screenDcRequestStop(); else screenStop();
-  } else {
-    if(currentDevice) screenDcRequestStart(); else screenStart();
-  }
-}
-
-function screenSetQuality(q){
-  _screenQuality = q;
-  if(_screenRunning){
-    if(currentDevice){ screenDcRequestStop(); setTimeout(screenDcRequestStart, 200); }
-    else { screenStop(); screenStart(); }
-  }
-}
-
-// ── Нормализуем координаты внутри <img> → 0..1 ────────
-function _screenNormCoords(e){
-  const img  = $('screen-img');
-  const rect = img.getBoundingClientRect();
-  // <img> с object-fit:contain — реальная картинка занимает не весь bounding rect
-  const imgAspect  = _screenW / _screenH;
-  const boxAspect  = rect.width / rect.height;
-  let   drawW, drawH, offX, offY;
-  if(imgAspect > boxAspect){
-    drawW = rect.width;  drawH = rect.width / imgAspect;
-    offX = 0;            offY = (rect.height - drawH) / 2;
-  } else {
-    drawH = rect.height; drawW = rect.height * imgAspect;
-    offY = 0;            offX = (rect.width - drawW) / 2;
-  }
-  const x = (e.clientX - rect.left - offX) / drawW;
-  const y = (e.clientY - rect.top  - offY) / drawH;
-  return { x: Math.max(0, Math.min(1, x)), y: Math.max(0, Math.min(1, y)) };
-}
-
-function _screenFlash(e){
-  const fl = $('screen-tap-flash');
-  const img = $('screen-img');
-  const rect = img.getBoundingClientRect();
-  fl.style.left    = (e.clientX - rect.left) + 'px';
-  fl.style.top     = (e.clientY - rect.top)  + 'px';
-  fl.style.display = 'block';
-  fl.style.opacity = '1';
-  setTimeout(()=>{ fl.style.opacity='0'; setTimeout(()=>{ fl.style.display='none'; },300); },150);
-}
-
-function screenPointerDown(e){
-  if(!_screenRunning) return;
+function scrPtrDown(e){
+  if(!_scrRunning) return;
   e.preventDefault();
-  _screenPtrDown   = true;
-  _screenPtrDownTs = Date.now();
-  const c = _screenNormCoords(e);
-  _screenPtrDownX = c.x;
-  _screenPtrDownY = c.y;
+  _scrPtrDown=true; _scrT0=Date.now();
+  const c=scrNorm(e); _scrX0=c.x; _scrY0=c.y;
   $('screen-img').setPointerCapture(e.pointerId);
 }
 
-function screenPointerUp(e){
-  if(!_screenRunning || !_screenPtrDown) return;
-  e.preventDefault();
-  _screenPtrDown = false;
-  const c  = _screenNormCoords(e);
-  const dx = Math.abs(c.x - _screenPtrDownX);
-  const dy = Math.abs(c.y - _screenPtrDownY);
-  const dt = Date.now() - _screenPtrDownTs;
-  _screenFlash(e);
+function scrPtrUp(e){
+  if(!_scrRunning||!_scrPtrDown) return;
+  e.preventDefault(); _scrPtrDown=false;
+  const c=scrNorm(e);
+  const dx=Math.abs(c.x-_scrX0), dy=Math.abs(c.y-_scrY0);
+  scrFlash(e);
+  const inp=dx<0.02&&dy<0.02
+    ?{type:'tap',x:c.x,y:c.y}
+    :{type:'swipe',x1:_scrX0,y1:_scrY0,x2:c.x,y2:c.y,ms:Math.max(100,Math.min(Date.now()-_scrT0,600))};
+  scrSendInput(inp);
+}
 
-  if(dx < 0.02 && dy < 0.02){
-    const inp = {type:'tap', x:c.x, y:c.y};
-    if(currentDevice) screenDcSendInput(inp); else agentFetch('/input', inp).catch(()=>{});
+function scrPtrMove(e){ /* visual only */ }
+
+function scrSendInput(inp){
+  if(currentDevice) dcSend(currentDevice,{type:'screen_input',...inp});
+  else agentFetch('/input',inp).catch(()=>{});
+}
+
+function screenKey(kc){ scrSendInput({type:'key',keycode:kc}); }
+function screenSendText(){
+  const el=$('screen-text'), t=el.value; if(!t) return; el.value='';
+  scrSendInput({type:'text',text:t});
+}
+
+function screenToggle(){
+  if(_scrRunning){
+    if(currentDevice) scrDcStop(); else scrStop();
   } else {
-    const ms = Math.max(100, Math.min(dt, 600));
-    const inp = {type:'swipe', x1:_screenPtrDownX, y1:_screenPtrDownY, x2:c.x, y2:c.y, ms};
-    if(currentDevice) screenDcSendInput(inp); else agentFetch('/input', inp).catch(()=>{});
+    if(currentDevice) scrDcStart(); else scrStart();
   }
 }
 
-function screenPointerMove(e){
-  // Только для визуальной обратной связи — не отправляем каждое событие
+function screenSetQ(q){
+  _scrQ=q;
+  if(_scrRunning){
+    if(currentDevice){scrDcStop();setTimeout(scrDcStart,200);}
+    else{scrStop();scrStart();}
+  }
 }
 
-function screenKey(keycode){
-  const inp = {type:'key', keycode};
-  if(currentDevice) screenDcSendInput(inp); else agentFetch('/input', inp).catch(()=>{});
+// Local screen (device opens its own agent stream)
+async function scrStart(){
+  try{
+    const info=await agentFetch('/screeninfo');
+    _scrW=info.width||1080; _scrH=info.height||1920;
+    $('screen-res').textContent=_scrW+'×'+_scrH;
+  }catch(_){}
+  _scrRunning=true; _scrFpsTs=performance.now(); _scrFpsCount=0;
+  $('screen-btn').textContent='⏹ Стоп'; $('screen-btn').style.background='var(--e)';
+  $('screen-img').src=_agentUrl.replace(/\/+$/,'')+'/stream?q='+_scrQ;
+  scrFpsLoop();
 }
 
-function screenSendText(){
-  const el = $('screen-text-inp');
-  const text = el.value;
-  if(!text) return;
-  el.value = '';
-  const inp = {type:'text', text};
-  if(currentDevice) screenDcSendInput(inp); else agentFetch('/input', inp).catch(()=>{});
+function scrStop(){
+  _scrRunning=false;
+  $('screen-img').src='';
+  $('screen-btn').textContent='▶ Старт'; $('screen-btn').style.background='';
+  $('screen-fps').textContent='— fps';
 }
 
-// ── Screen mirror via DataChannel ────────────────────
-let _screenDcRunning = false;   // этот браузер стримит
-let _screenDcTo = null;         // кому стримим
-let _screenDcTimer = null;
-
-// HOST: контроллер просит начать стрим
-async function screenDcHostStart(from, msg) {
-  _screenDcTo = from;
-  _screenDcRunning = true;
-  const fps = msg.fps || 5;
-  const quality = msg.quality || 65;
-  agentLog('← screen_start от ' + from.slice(0,14));
-  _screenDcLoop(fps, quality);
+function scrFpsLoop(){
+  if(!_scrRunning) return;
+  _scrFpsCount++;
+  const now=performance.now();
+  if(now-_scrFpsTs>=1000){
+    $('screen-fps').textContent=_scrFpsCount+' fps';
+    _scrFpsCount=0; _scrFpsTs=now;
+  }
+  requestAnimationFrame(scrFpsLoop);
 }
 
-// HOST: контроллер просит остановить
-function screenDcHostStop(from) {
-  _screenDcRunning = false;
-  _screenDcTo = null;
-  clearTimeout(_screenDcTimer);
-  agentLog('← screen_stop');
+// DC-based screen mirror (controller requests stream from remote device)
+function scrDcStart(){
+  if(!currentDevice) return;
+  dcSend(currentDevice,{type:'screen_start',fps:8,quality:_scrQ});
+  _scrRunning=true; _scrFpsTs=performance.now(); _scrFpsCount=0;
+  $('screen-btn').textContent='⏹ Стоп'; $('screen-btn').style.background='var(--e)';
+  scrFpsLoop();
 }
 
-// HOST: получили команду ввода от контроллера
-function screenDcHostInput(from, msg) {
-  agentFetch('/input', msg).catch(() => {});
+function scrDcStop(){
+  if(!currentDevice) return;
+  dcSend(currentDevice,{type:'screen_stop'});
+  _scrRunning=false;
+  $('screen-img').src='';
+  $('screen-btn').textContent='▶ Старт'; $('screen-btn').style.background='';
+  $('screen-fps').textContent='— fps';
 }
 
-// HOST: цикл захвата и отправки кадров
-async function _screenDcLoop(fps, quality) {
-  if (!_screenDcRunning || !_screenDcTo) return;
-  const interval = Math.round(1000 / fps);
-  try {
-    const resp = await fetch(_agentUrl.replace(/\/+$/, '') + '/stream?q=' + quality, {signal: AbortSignal.timeout(3000)});
-    const reader = resp.body.getReader();
-    let buf = new Uint8Array(0);
-    const boundary = new TextEncoder().encode('--frame');
+// HOST: receive screen_start from controller
+async function scrDcHostStart(from,msg){
+  _scrDcTo=from; _scrDcRunning=true;
+  alog('← screen_start from '+from.slice(0,14));
+  _scrDcLoop(msg.fps||8, msg.quality||65);
+}
 
-    const pump = async () => {
-      if (!_screenDcRunning) { reader.cancel(); return; }
-      const { done, value } = await reader.read();
-      if (done) return;
-      // accumulate
-      const tmp = new Uint8Array(buf.length + value.length);
-      tmp.set(buf); tmp.set(value, buf.length);
-      buf = tmp;
-      // find complete frame: --frame\r\nContent-Type:...\r\n\r\n<data>\r\n
-      const frameStart = _indexOfSeq(buf, new TextEncoder().encode('\r\n\r\n'));
-      if (frameStart !== -1) {
-        const dataStart = frameStart + 4;
-        const frameEnd  = _indexOfSeq(buf, boundary, dataStart);
-        if (frameEnd !== -1) {
-          const frameBytes = buf.slice(dataStart, frameEnd - 2); // strip trailing \r\n
-          // detect mime from header
-          const header = new TextDecoder().decode(buf.slice(0, frameStart));
-          const mime = header.includes('jpeg') ? 'image/jpeg' : 'image/png';
-          // encode to base64
-          let b64 = '';
-          const chunk = 8192;
-          for (let i = 0; i < frameBytes.length; i += chunk) {
-            b64 += String.fromCharCode(...frameBytes.slice(i, i + chunk));
-          }
-          b64 = btoa(b64);
-          dcSend(_screenDcTo, {type: 'screen_frame', b64, mime});
-          buf = buf.slice(frameEnd);
-          // throttle
-          _screenDcTimer = setTimeout(() => pump(), interval);
+function scrDcHostStop(from){
+  _scrDcRunning=false; _scrDcTo=null;
+  clearTimeout(_scrDcTimer);
+  alog('← screen_stop');
+}
+
+function scrDcHostInput(from,msg){
+  agentFetch('/input',msg).catch(()=>{});
+}
+
+async function _scrDcLoop(fps,quality){
+  if(!_scrDcRunning||!_scrDcTo) return;
+  const interval=Math.round(1000/fps);
+  try{
+    const resp=await fetch(_agentUrl.replace(/\/+$/,'')+'/stream?q='+quality,{signal:AbortSignal.timeout(4000)});
+    const reader=resp.body.getReader();
+    let buf=new Uint8Array(0);
+    const SEP=new TextEncoder().encode('--frame');
+    const CRLF2=new TextEncoder().encode('\r\n\r\n');
+
+    const pump=async()=>{
+      if(!_scrDcRunning){reader.cancel();return;}
+      const{done,value}=await reader.read();
+      if(done) return;
+      const tmp=new Uint8Array(buf.length+value.length);
+      tmp.set(buf); tmp.set(value,buf.length); buf=tmp;
+
+      const hEnd=_indexOf(buf,CRLF2);
+      if(hEnd!==-1){
+        const dStart=hEnd+4;
+        const fEnd=_indexOf(buf,SEP,dStart);
+        if(fEnd!==-1){
+          const frame=buf.slice(dStart,fEnd-2);
+          const hdr=new TextDecoder().decode(buf.slice(0,hEnd));
+          const mime=hdr.includes('jpeg')?'image/jpeg':'image/png';
+          let b64s='';
+          const chunk=8192;
+          for(let i=0;i<frame.length;i+=chunk) b64s+=String.fromCharCode(...frame.slice(i,i+chunk));
+          dcSend(_scrDcTo,{type:'screen_frame',b64:btoa(b64s),mime});
+          buf=buf.slice(fEnd);
+          _scrDcTimer=setTimeout(()=>pump(),interval);
           return;
         }
       }
       await pump();
     };
     await pump();
-  } catch (e) {
-    agentLog('screen loop err: ' + e.message);
-    if (_screenDcRunning) {
-      _screenDcTimer = setTimeout(() => _screenDcLoop(fps, quality), 2000);
-    }
+  }catch(e){
+    alog('screen loop: '+e.message);
+    if(_scrDcRunning) _scrDcTimer=setTimeout(()=>_scrDcLoop(fps,quality),2000);
   }
 }
 
-function _indexOfSeq(buf, seq, from = 0) {
-  outer: for (let i = from; i <= buf.length - seq.length; i++) {
-    for (let j = 0; j < seq.length; j++) {
-      if (buf[i + j] !== seq[j]) continue outer;
-    }
+function _indexOf(buf,seq,from=0){
+  outer:for(let i=from;i<=buf.length-seq.length;i++){
+    for(let j=0;j<seq.length;j++) if(buf[i+j]!==seq[j]) continue outer;
     return i;
-  }
-  return -1;
+  } return -1;
 }
 
-// CONTROLLER: получили кадр от устройства
-function screenDcCtrlFrame(msg) {
-  const img = $('screen-img');
-  if (!img) return;
-  img.src = 'data:' + msg.mime + ';base64,' + msg.b64;
-  // FPS counter
-  _screenFpsCount++;
+// CONTROLLER: receive frame from host
+function scrDcCtrlFrame(msg){
+  const img=$('screen-img'); if(!img) return;
+  img.src='data:'+msg.mime+';base64,'+msg.b64;
+  _scrFpsCount++;
 }
 
-// CONTROLLER: запросить стрим у текущего устройства
-function screenDcRequestStart() {
-  if (!currentDevice) return;
-  dcSend(currentDevice, {type: 'screen_start', fps: 8, quality: _screenQuality});
-  _screenRunning = true;
-  _screenFpsTs = performance.now();
-  _screenFpsCount = 0;
-  $('screen-toggle-btn').textContent = '⏹ Стоп';
-  $('screen-toggle-btn').style.background = 'var(--e)';
-  _screenAnimLoop();
-}
-
-function screenDcRequestStop() {
-  if (!currentDevice) return;
-  dcSend(currentDevice, {type: 'screen_stop'});
-  _screenRunning = false;
-  const img = $('screen-img');
-  if (img) img.src = '';
-  $('screen-toggle-btn').textContent = '▶ Старт';
-  $('screen-toggle-btn').style.background = '';
-  $('screen-fps').textContent = '— fps';
-}
-
-// CONTROLLER: отправить ввод на устройство
-function screenDcSendInput(inputMsg) {
-  if (!currentDevice) return;
-  dcSend(currentDevice, {type: 'screen_input', ...inputMsg});
-}
-
-// ── NAT Detection ────────────────────────────────────
-function analyzeNat(id, candidates){
-  if(!candidates?.length) return;
-
-  const types    = candidates.map(c => c.type);
-  const hasHost  = types.includes('host');
-  const hasSrflx = types.includes('srflx');
-
-  // Symmetric NAT признаки:
-  // — есть srflx кандидаты (за NAT)
-  // — нет host-only (разные сети)
-  // — нет relay
-  // — несколько srflx с разными портами (разные маппинги = Symmetric)
-  const srflxPorts = candidates
-    .filter(c => c.type === 'srflx')
-    .map(c => c.port);
-  const uniquePorts = new Set(srflxPorts).size;
-  const likelySymmetric = hasSrflx && uniquePorts > 1;
-  const maybeSymmetric  = hasSrflx && !hasHost; // разные сети, один STUN
-
-  const info = {
-    hasHost, hasSrflx,
-    likelySymmetric,
-    maybeSymmetric,
-    candidateTypes: [...new Set(types)],
-    localNetwork: hasHost && !hasSrflx,
-  };
-
-  rtcs[id]._natInfo = info;
-  dbg('NAT ['+id.slice(0,14)+']: '+info.candidateTypes.join(', ')
-    +(info.localNetwork?' (локальная сеть)':'')
-    +(likelySymmetric?' ⚠ Symmetric NAT':'')
-    +(maybeSymmetric&&!likelySymmetric?' ? возможно Symmetric':''), 'info');
-
-  // Показываем предупреждение сразу после сбора кандидатов
-  // если признаки Symmetric NAT — не ждём failed
-  if((likelySymmetric || maybeSymmetric) && id === currentDevice){
-    // Небольшая задержка — дать шанс на подключение
-    entry._natWarnTimer = setTimeout(()=>{
-      if(rtcs[id]?.state !== 'open'){
-        showSymmetricNatWarning();
-      }
-    }, 5000);
-  }
-}
-
-// Таймер — если ICE завис в checking (Symmetric NAT часто не даёт failed)
-function startNatCheckTimer(id, entry){
-  entry._natCheckTimer = setTimeout(()=>{
-    const ice = entry.pc.iceConnectionState;
-    if(ice === 'checking' || ice === 'new'){
-      dbg('ICE timeout ['+id.slice(0,14)+'] — вероятно Symmetric NAT','err');
-      if(id === currentDevice) showSymmetricNatWarning();
-    }
-  }, 15000); // 15 секунд без подключения = проблема
-}
-
-function showNatWarning(id){
-  const info = rtcs[id]?._natInfo;
-  if(info?.localNetwork){
-    if(currentDevice===id) toast('Ошибка RTC в локальной сети. Проверь что оба устройства онлайн.','err',5000);
-    return;
-  }
-  if(currentDevice===id) showSymmetricNatWarning();
-}
-
-function showSymmetricNatWarning(){
-  // Не показывать если WS не подключён (проблема не в NAT)
-  if(!isOpen) return;
-  if(document.getElementById('nat-warning')) return;
-
-  const warn = document.createElement('div');
-  warn.id = 'nat-warning';
-  warn.style.cssText = [
-    'position:fixed',
-    'bottom:calc(80px + env(safe-area-inset-bottom,0px))',
-    'left:12px;right:12px;z-index:200',
-    'background:var(--sf)',
-    'border:1px solid rgba(229,192,123,.45)',
-    'border-radius:14px;padding:14px 16px',
-    'box-shadow:0 4px 24px rgba(0,0,0,.5)',
-    'animation:slideInRight .25s ease',
-  ].join(';');
-
-  warn.innerHTML = `
-    <div style="display:flex;align-items:flex-start;gap:10px">
-      <span style="font-size:22px;flex-shrink:0">⚠️</span>
-      <div style="flex:1;min-width:0">
-        <div style="font-size:13px;font-weight:700;color:var(--w);margin-bottom:6px">
-          Symmetric NAT — P2P недоступен
-        </div>
-        <div style="font-size:11px;color:var(--mu);line-height:1.8">
-          Одно из устройств за Symmetric NAT (обычно мобильная сеть 4G/5G или корпоративная сеть).
-          Прямое соединение невозможно без ретранслятора.
-        </div>
-        <div style="display:flex;gap:8px;margin-top:10px">
-          <button onclick="showNatExplainer()" style="flex:1;background:var(--ad);border:1px solid rgba(0,255,157,.2);color:var(--a);border-radius:8px;padding:8px;font-family:inherit;font-size:11px;font-weight:700;cursor:pointer">Подробнее</button>
-          <button onclick="document.getElementById('nat-warning').remove()" style="background:none;border:1px solid var(--bd);color:var(--mu);border-radius:8px;padding:8px 12px;font-family:inherit;font-size:11px;cursor:pointer">✕</button>
-        </div>
-      </div>
-    </div>`;
-  document.body.appendChild(warn);
-  setTimeout(()=>warn?.remove(), 20000);
-}
-
-function showNatExplainer(){
-  document.getElementById('nat-warning')?.remove();
-  const sheet = document.createElement('div');
-  sheet.style.cssText = 'position:fixed;inset:0;z-index:300;background:rgba(0,0,0,.8);display:flex;flex-direction:column;justify-content:flex-end;backdrop-filter:blur(4px)';
-  sheet.innerHTML = `
-    <div style="background:var(--sf);border-radius:20px 20px 0 0;border-top:1px solid var(--bd);padding:20px;padding-bottom:calc(20px + env(safe-area-inset-bottom,0px));max-height:80vh;overflow-y:auto" onclick="event.stopPropagation()">
-      <div style="font-size:14px;font-weight:700;color:var(--w);margin-bottom:14px">⚠️ Symmetric NAT</div>
-      <div style="font-size:12px;color:var(--mu);line-height:2">
-        <b style="color:var(--tx)">Проблема:</b> твоя сеть (или сеть собеседника) использует Symmetric NAT —
-        каждый новый запрос получает новый внешний порт.
-        WebRTC не может согласовать соединение напрямую.<br><br>
-        <b style="color:var(--tx)">Кто виноват:</b><br>
-        • Мобильные операторы (4G/5G) — почти всегда Symmetric NAT<br>
-        • Корпоративные сети<br>
-        • Некоторые домашние роутеры с жёсткими настройками<br><br>
-        <b style="color:var(--tx)">Что можно сделать:</b><br>
-        • Подключить оба устройства к одной Wi-Fi сети<br>
-        • Использовать Wi-Fi вместо мобильной сети на одном из устройств<br>
-        • Включить VPN (меняет тип NAT для приложений)<br><br>
-        <b style="color:var(--tx)">Как проверить свой NAT:</b><br>
-        Открой браузер на устройстве и введи в консоли DevTools:<br>
-        <code style="color:var(--a);font-size:10px;display:block;margin:6px 0;padding:6px 8px;background:var(--bg);border-radius:6px;user-select:all" onclick="copyText(this.textContent,'Скопировано')">const pc=new RTCPeerConnection({iceServers:[{urls:'stun:stun.l.google.com:19302'}]});pc.createDataChannel('t');pc.createOffer().then(o=>pc.setLocalDescription(o));pc.onicecandidate=e=>{if(e.candidate)console.log(e.candidate.type,e.candidate.address,e.candidate.port)};</code>
-        Если видишь несколько <code style="color:var(--a)">srflx</code> с разными портами — Symmetric NAT.
-      </div>
-      <button onclick="this.closest('[style*=fixed]').remove()" style="width:100%;margin-top:16px;background:none;border:1px solid var(--bd);color:var(--mu);border-radius:10px;padding:12px;font-family:inherit;font-size:12px;cursor:pointer">Закрыть</button>
-    </div>`;
-  sheet.onclick = ()=>sheet.remove();
-  document.body.appendChild(sheet);
-}
-
-// ── Pill ──────────────────────────────────────────────
-requestAnimationFrame(()=>{ const a=document.querySelector('.tab.act'); if(a) movePill(a.id); });
-window.addEventListener('resize',()=>{ const a=document.querySelector('.tab.act'); if(a) movePill(a.id); });
-
-if('serviceWorker' in navigator){
-  window.addEventListener('load',()=>{
-    navigator.serviceWorker.register('/sw.js').then(r=>dbg('SW: '+r.scope,'ok')).catch(e=>dbg('SW error: '+e.message,'err'));
-  });
-}
-
-// ── Swipe back ───────────────────────────────────────
+// ════════════════════════════════════════════
+// SWIPE BACK (device screen)
+// ════════════════════════════════════════════
 (()=>{
   let sx=0,sy=0,sw=false;
   const dev=$('s-device');
   dev.addEventListener('touchstart',e=>{sx=e.touches[0].clientX;sy=e.touches[0].clientY;sw=sx<28;},{passive:true});
-  dev.addEventListener('touchmove',e=>{if(!sw)return;const dx=e.touches[0].clientX-sx;if(dx>0&&Math.abs(e.touches[0].clientY-sy)<60)dev.style.transform='translateX('+Math.min(dx,window.innerWidth*.6)+'px)';},{passive:true});
-  dev.addEventListener('touchend',e=>{if(!sw)return;sw=false;const dx=e.changedTouches[0].clientX-sx;dev.style.transform='';if(dx>80)closeDevice();},{passive:true});
+  dev.addEventListener('touchmove',e=>{
+    if(!sw) return;
+    const dx=e.touches[0].clientX-sx;
+    if(dx>0&&Math.abs(e.touches[0].clientY-sy)<60) dev.style.transform='translateX('+Math.min(dx,window.innerWidth*.6)+'px)';
+  },{passive:true});
+  dev.addEventListener('touchend',e=>{
+    if(!sw) return; sw=false;
+    const dx=e.changedTouches[0].clientX-sx; dev.style.transform='';
+    if(dx>80) closeDevice();
+  },{passive:true});
 })();
 
-// ── Init ──────────────────────────────────────────────
+// ════════════════════════════════════════════
+// INIT
+// ════════════════════════════════════════════
 (async()=>{
   await loadOrGenKey();
-  await loadOrGenEncKey();
-  initLeaderElection();
+  generateMainQr();
+  $('my-id-badge').textContent=myId;
+
   const saved=localStorage.getItem('tvrc_srv');
-  if(saved&&saved!=='wss://tovsa-signaling.onrender.com/signal'){ $('srv-select').value='custom'; $('srv-custom').style.display=''; $('srv-custom').value=saved; }
+  if(saved&&saved!=='wss://tovsa-signaling.onrender.com/signal'){
+    $('srv-select').value='custom';
+    $('srv-custom').style.display='';
+    $('srv-custom').value=saved;
+  }
+
   try{ Object.assign(peers,JSON.parse(localStorage.getItem('tvrc_peers')||'{}')); }catch(_){}
   renderDeviceList();
-  generateQr();
-  // Check for saved FS handle
-  const h=await fsLoadHandle();
-  if(h){ $('btn-restore-folder').style.display=''; }
-  if(new URL(location.href).searchParams.has('share-target')) handleShareTarget();
+
+  requestAnimationFrame(()=>{const a=document.querySelector('.tab.act');if(a)movePill(a.id);});
+  window.addEventListener('resize',()=>{const a=document.querySelector('.tab.act');if(a)movePill(a.id);});
+
+  if('serviceWorker' in navigator){
+    navigator.serviceWorker.register('/sw.js').catch(()=>{});
+  }
 })();
 </script>
 </body>

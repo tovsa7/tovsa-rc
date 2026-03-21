@@ -1900,7 +1900,7 @@ async function agentConnect(){
     $('agent-install-hint').style.display = 'none';
     await agentRefreshLs();
     toast('Агент подключён','ok');
-    rlog('← Агент: '+info.platform+' '+info.cwd,'ok');
+    agentLog('← Агент: '+info.platform+' '+info.cwd,'ok');
   }catch(e){
     agentLog('✗ agentConnect: '+e.message+' '+e.stack?.split('\n')[1]);
     status.style.color = 'var(--e)';
@@ -1908,7 +1908,7 @@ async function agentConnect(){
     $('agent-info').style.display='none';
     $('agent-term').style.display='none';
     toast('Агент недоступен — запусти agent.py на устройстве','err',4000);
-    rlog('← Агент: '+e.message,'err');
+    agentLog('← Агент: '+e.message,'err');
   }
   btn.disabled=false; btn.textContent='Проверить';
 }
@@ -1934,7 +1934,7 @@ async function agentRefreshLs(){
         ${size}
       </div>`;
     }).join('');
-  }catch(e){ rlog('Агент ls: '+e.message,'err'); }
+  }catch(e){ agentLog('Агент ls: '+e.message,'err'); }
 }
 
 async function agentCd(path){
@@ -1958,19 +1958,19 @@ async function agentRun(){
   out.style.display = '';
   out.textContent = '⏳ '+cmd+'...';
   out.style.color = 'var(--mu)';
-  rlog('→ agent run: '+cmd,'ok');
+  agentLog('→ agent run: '+cmd,'ok');
   try{
     const data = await agentFetch('/run', {cmd, cwd:_agentCwd, timeout:30});
     const text = (data.stdout||'') + (data.stderr ? '\n[stderr] '+data.stderr : '');
     out.textContent = text || '(нет вывода)';
     out.style.color = data.code===0 ? 'var(--a)' : 'var(--e)';
-    rlog('← agent ['+data.code+']: '+(text||'ok').slice(0,60),'in');
+    agentLog('← agent ['+data.code+']: '+(text||'ok').slice(0,60),'in');
     // Refresh file list after command
     await agentRefreshLs();
   }catch(e){
     out.textContent = 'Ошибка: '+e.message;
     out.style.color = 'var(--e)';
-    rlog('← agent error: '+e.message,'err');
+    agentLog('← agent error: '+e.message,'err');
   }
 }
 
@@ -1984,7 +1984,7 @@ async function agentOpenOrEdit(name){
       openEditor(name, data.content, async(text)=>{
         await agentFetch('/write', {path:name, content:text});
         toast('Сохранено: '+name,'ok');
-        rlog('← agent write: '+name,'ok');
+        agentLog('← agent write: '+name,'ok');
       });
     }catch(e){ toast('Ошибка чтения: '+e.message,'err'); }
   } else {

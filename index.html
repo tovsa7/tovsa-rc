@@ -242,7 +242,6 @@ textarea{resize:none;line-height:1.5}
             <br><span style="opacity:.6">Termux:</span><br>
             <code style="color:var(--a);cursor:pointer;user-select:all" onclick="copyText(this.textContent)">pkg install python curl && python3 -c "$(curl -fsSL https://tovsa7.github.io/tovsa-rc/bootstrap.py)"</code>
           </div>
-          <div id="agent-debug" style="font-size:10px;font-family:monospace;color:var(--mu);background:var(--bg);border:1px solid var(--bd);border-radius:6px;padding:6px 8px;max-height:60px;overflow-y:auto;white-space:pre;cursor:pointer" onclick="copyText(this.textContent)">лог...</div>
           <div class="row">
             <input id="agent-url" value="http://localhost:7070" style="flex:1;font-size:11px">
             <button class="btn sm" id="btn-agent-connect" onclick="agentConnect()">Подключить</button>
@@ -410,12 +409,7 @@ function rlog(msg, cls=''){
   el.scrollTop=el.scrollHeight;
 }
 
-function alog(msg){
-  const el=$('agent-debug');
-  if(!el) return;
-  const ts=new Date().toLocaleTimeString('ru',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
-  el.textContent=ts+' '+msg+'\n'+el.textContent.slice(0,600);
-}
+function alog(msg){ rlog(msg); }
 
 function tsNow(){ return new Date().toLocaleTimeString('ru',{hour:'2-digit',minute:'2-digit'}); }
 function esc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
@@ -1198,7 +1192,13 @@ function scrDcStop(){
 // HOST: receive screen_start from controller
 async function scrDcHostStart(from,msg){
   _scrDcTo=from; _scrDcRunning=true;
-  alog('← screen_start from '+from.slice(0,14));
+  const dc=rtcs[from]?.dc;
+  rlog('screen_start dc='+( dc?.readyState||'none')+' agent='+_agentUrl);
+  if(!dc||dc.readyState!=='open'){
+    rlog('DC not open, cannot stream','err');
+    _scrDcRunning=false; _scrDcTo=null;
+    return;
+  }
   _scrDcLoop(msg.fps||8, msg.quality||65);
 }
 

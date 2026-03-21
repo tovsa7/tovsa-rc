@@ -849,6 +849,12 @@ function renderDeviceList(){
 }
 
 function openDevice(id){
+  // Reset screen state from previous session
+  _scrRunning=false;
+  _scrDcRunning=false;
+  $('screen-btn').textContent='▶ Старт'; $('screen-btn').style.background='';
+  $('screen-fps').textContent='— fps';
+  $('screen-img').src='';
   currentDevice=id;
   const p=peers[id];
   $('dev-name').textContent=p?.name||id.slice(0,16);
@@ -866,8 +872,14 @@ function closeDevice(){
     $('s-device').classList.remove('on');
     $('s-device').style.animation='';
   },220);
-  // Stop screen if running
-  if(_scrRunning) scrStop();
+  // Stop screen
+  if(_scrRunning){
+    if(currentDevice) scrDcStop(); else scrStop();
+  }
+  _scrRunning=false;
+  $('screen-btn').textContent='▶ Старт'; $('screen-btn').style.background='';
+  $('screen-fps').textContent='— fps';
+  $('screen-img').src='';
   currentDevice=null;
   $('btn-back').style.display='none';
   $('topbar-title').textContent='TOVSA RC';

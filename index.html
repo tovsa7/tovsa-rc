@@ -1892,6 +1892,7 @@ async function agentConnect(){
     toast('Агент подключён','ok');
     rlog('← Агент: '+info.platform+' '+info.cwd,'ok');
   }catch(e){
+    agentLog('✗ agentConnect: '+e.message+' '+e.stack?.split('\n')[1]);
     status.style.color = 'var(--e)';
     status.textContent = '✗ недоступен';
     $('agent-info').style.display='none';

@@ -255,6 +255,47 @@ def _vnc_capture_jpeg(quality=65, scale=1.0):
         _vnc_sock = None
         return None
 
+
+def _vnc_pointer(x, y, buttons=0):
+    """Отправить PointerEvent в VNC."""
+    global _vnc_sock
+    try:
+        if _vnc_sock:
+            _vnc_sock.send(struct.pack(">BBHH", 5, buttons, x, y))
+    except Exception:
+        _vnc_sock = None
+
+def _vnc_key(keysym, down=True):
+    """Отправить KeyEvent в VNC."""
+    global _vnc_sock
+    try:
+        if _vnc_sock:
+            _vnc_sock.send(struct.pack(">BBxxI", 4, 1 if down else 0, keysym))
+    except Exception:
+        _vnc_sock = None
+
+def _vnc_type_text(text):
+    """Напечатать строку через KeyEvent."""
+    # Простой маппинг ASCII → X11 keysym
+    for ch in text:
+        ks = ord(ch)
+        _vnc_key(ks, True)
+        _vnc_key(ks, False)
+
+def _vnc_click(x, y):
+    """Клик левой кнопкой мыши."""
+    _vnc_pointer(x, y, 1)   # press
+    _vnc_pointer(x, y, 0)   # release
+
+def _vnc_swipe(x1, y1, x2, y2, steps=10):
+    """Плавное движение мыши (свайп)."""
+    for i in range(steps+1):
+        t = i / steps
+        x = int(x1 + (x2-x1)*t)
+        y = int(y1 + (y2-y1)*t)
+        _vnc_pointer(x, y, 1)
+    _vnc_pointer(x2, y2, 0)
+
 VNC_AVAILABLE = False
 try:
     _vnc_connect(VNC_PASS)
@@ -466,19 +507,42 @@ class AgentHandler(BaseHTTPRequestHandler):
         if self.path == "/input":
             kind = data.get("type","")
             try:
-                w, h = _get_screen_size()
-                if kind == "tap":
-                    subprocess.run(["input","tap",str(int(float(data["x"])*w)),str(int(float(data["y"])*h))],timeout=3)
-                elif kind == "swipe":
-                    subprocess.run(["input","swipe",
-                        str(int(float(data["x1"])*w)),str(int(float(data["y1"])*h)),
-                        str(int(float(data["x2"])*w)),str(int(float(data["y2"])*h)),
-                        str(int(data.get("ms",200)))],timeout=3)
-                elif kind == "text":
-                    subprocess.run(["input","text",str(data.get("text","")).replace(" ","%s")],timeout=3)
-                elif kind == "key":
-                    subprocess.run(["input","keyevent",str(data.get("keycode",""))],timeout=3)
-                self.send_json({"ok": True})
+                if VNC_AVAILABLE and _vnc_sock:
+                    w, h = _vnc_w, _vnc_h
+                    if kind == "tap":
+                        x = int(float(data["x"]) * w)
+                        y = int(float(data["y"]) * h)
+                        _vnc_click(x, y)
+                    elif kind == "swipe":
+                        x1 = int(float(data["x1"]) * w)
+                        y1 = int(float(data["y1"]) * h)
+                        x2 = int(float(data["x2"]) * w)
+                        y2 = int(float(data["y2"]) * h)
+                        _vnc_swipe(x1, y1, x2, y2)
+                    elif kind == "text":
+                        _vnc_type_text(str(data.get("text","")))
+                    elif kind == "key":
+                        # Map Android keycodes to X11 keysyms
+                        kmap = {3: 0xff50, 4: 0xff1b, 24: 0x1008ff13, 25: 0x1008ff11}
+                        ks = kmap.get(int(data.get("keycode",0)), 0)
+                        if ks:
+                            _vnc_key(ks, True)
+                            _vnc_key(ks, False)
+                    self.send_json({"ok": True})
+                else:
+                    w, h = _get_screen_size()
+                    if kind == "tap":
+                        subprocess.run(["input","tap",str(int(float(data["x"])*w)),str(int(float(data["y"])*h))],timeout=3)
+                    elif kind == "swipe":
+                        subprocess.run(["input","swipe",
+                            str(int(float(data["x1"])*w)),str(int(float(data["y1"])*h)),
+                            str(int(float(data["x2"])*w)),str(int(float(data["y2"])*h)),
+                            str(int(data.get("ms",200)))],timeout=3)
+                    elif kind == "text":
+                        subprocess.run(["input","text",str(data.get("text","")).replace(" ","%s")],timeout=3)
+                    elif kind == "key":
+                        subprocess.run(["input","keyevent",str(data.get("keycode",""))],timeout=3)
+                    self.send_json({"ok": True})
             except Exception as e:
                 self.send_json({"error": str(e)}, 500)
             return

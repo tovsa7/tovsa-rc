@@ -815,6 +815,7 @@ function handleDcMsg(from, msg){
     case 'screen_start': scrDcHostStart(from,msg); break;
     case 'screen_stop':  scrDcHostStop(from); scrDcCtrlStop(); break;
     case 'screen_frame': scrDcCtrlFrame(msg); break;
+    case 'screen_info':  _scrW=msg.w; _scrH=msg.h; $('screen-res').textContent=msg.w+'×'+msg.h; break;
     case 'screen_input': scrDcHostInput(from,msg); break;
   }
 }
@@ -1235,7 +1236,13 @@ async function scrDcHostStart(from, msg){
     _scrDcRunning=false; _scrDcTo=null;
     return;
   }
-  // Use MJPEG stream from agent (VNC or screencap)
+  // Fetch screen resolution for input coordinate mapping
+  try{
+    const info=await agentFetch('/screeninfo');
+    _scrW=info.width||1080; _scrH=info.height||1920;
+    // Tell controller the resolution
+    dcSendRaw(from,{type:'screen_info',w:_scrW,h:_scrH});
+  }catch(_){}
   _scrDcLoop(msg.fps||8, msg.quality||65);
 }
 
@@ -1299,8 +1306,7 @@ function scrDcHostStop(from){
 }
 
 function scrDcHostInput(from, msg){
-  // No root/ADB → can't inject input, ignore silently
-  // (kept for future when ADB is available)
+  agentFetch('/input', msg).catch(()=>{});
 }
 
 // ── CONTROLLER side ───────────────────────────────────

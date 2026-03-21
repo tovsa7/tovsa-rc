@@ -211,12 +211,9 @@ def _vnc_connect(password=""):
     nl = struct.unpack(">I", _vnc_read_exact(s, 4))[0]
     _vnc_read_exact(s, nl)         # name
     _vnc_w, _vnc_h = w, h
-    # Set pixel format: 32bpp BGR
-    s.send(struct.pack(">BBBBBBBBHHHBBBBxx",
-        0, 0, 0, 0,      # type + padding
-        32, 24, 0, 1,    # bpp, depth, big-endian=0, true-color=1
-        255, 255, 255,   # r/g/b max
-        16, 8, 0))       # r/g/b shift
+    # Set pixel format: 32bpp BGRX (20 bytes total)
+    s.send(struct.pack(">BBBB", 0, 0, 0, 0) +
+           struct.pack(">BBBBHHHBBBxxx", 32, 24, 0, 1, 255, 255, 255, 16, 8, 0))
     _vnc_sock = s
 
 def _vnc_capture_jpeg(quality=65, scale=1.0):

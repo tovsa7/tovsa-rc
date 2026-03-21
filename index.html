@@ -8,8 +8,8 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Tovsa RC">
-<link rel="manifest" href="/tovsa-rc/manifest.json">
-<link rel="apple-touch-icon" href="/tovsa-rc/icon-192.png">
+<link rel="manifest" href="/manifest.json">
+<link rel="apple-touch-icon" href="/icon-192.png">
 <title>Tovsa Remote</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <style>
@@ -2267,7 +2267,7 @@ window.addEventListener('resize',()=>{ const a=document.querySelector('.tab.act'
 
 if('serviceWorker' in navigator){
   window.addEventListener('load',()=>{
-    navigator.serviceWorker.register('/tovsa-rc/sw.js').then(r=>dbg('SW: '+r.scope,'ok')).catch(e=>dbg('SW error: '+e.message,'err'));
+    navigator.serviceWorker.register('/sw.js').then(r=>dbg('SW: '+r.scope,'ok')).catch(e=>dbg('SW error: '+e.message,'err'));
   });
 }
 

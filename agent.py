@@ -111,14 +111,22 @@ class AgentHandler(BaseHTTPRequestHandler):
         global CWD
 
         # Отдаём index.html — полноценный Tovsa RC без mixed content
-        if self.path in ("/app", "/app/", "/index.html"):
-            html_path = INSTALL_DIR / "index.html"
-            if not html_path.exists():
-                self.send_json({"error": "index.html не найден в ~/.tovsa/ — скачай и положи туда"}, 404)
+        STATIC = {
+            "/app":           ("index.html",   "text/html; charset=utf-8"),
+            "/app/":          ("index.html",   "text/html; charset=utf-8"),
+            "/index.html":    ("index.html",   "text/html; charset=utf-8"),
+            "/manifest.json": ("manifest.json","application/manifest+json"),
+            "/sw.js":         ("sw.js",        "application/javascript"),
+        }
+        if self.path in STATIC:
+            filename, mime = STATIC[self.path]
+            file_path = INSTALL_DIR / filename
+            if not file_path.exists():
+                self.send_json({"error": f"{filename} не найден — перезапусти bootstrap"}, 404)
                 return
-            body = html_path.read_bytes()
+            body = file_path.read_bytes()
             self.send_response(200)
-            self.send_header("Content-Type",   "text/html; charset=utf-8")
+            self.send_header("Content-Type",   mime)
             self.send_header("Content-Length", str(len(body)))
             self.end_headers()
             self.wfile.write(body)

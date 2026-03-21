@@ -52,18 +52,19 @@ def main():
             print("  Нет сети и нет локальной копии. Скачай agent.py вручную.")
             sys.exit(1)
 
-    # Скачиваем index.html для раздачи с localhost
-    HTML_URL  = f"{REPO}/index.html"
-    HTML_PATH = INSTALL_DIR / "index.html"
-    print(f"  ↓ Скачиваю index.html...")
-    try:
-        req = urllib.request.Request(HTML_URL, headers={"User-Agent": "TovsaRC-Bootstrap/1.0"})
-        with urllib.request.urlopen(req, timeout=15) as resp:
-            content = resp.read()
-        HTML_PATH.write_bytes(content)
-        print(f"  ✓ Сохранён: {HTML_PATH}")
-    except Exception as e:
-        print(f"  ✗ Не удалось скачать index.html: {e} (агент продолжит работу)")
+    # Скачиваем статические файлы для раздачи с localhost
+    for filename in ["index.html", "manifest.json", "sw.js"]:
+        url  = f"{REPO}/{filename}"
+        path = INSTALL_DIR / filename
+        print(f"  ↓ Скачиваю {filename}...")
+        try:
+            req = urllib.request.Request(url, headers={"User-Agent": "TovsaRC-Bootstrap/1.0"})
+            with urllib.request.urlopen(req, timeout=15) as resp:
+                data = resp.read()
+            path.write_bytes(data)
+            print(f"  ✓ {filename}")
+        except Exception as e:
+            print(f"  ✗ {filename}: {e}")
 
     print(f"  Python: {sys.version.split()[0]}")
     print()

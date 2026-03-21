@@ -1,9 +1,8 @@
-const CACHE = 'tvrc-v1';
-const BASE = '/tovsa-rc';
+const CACHE = 'tvrc-v2';
 const ASSETS = [
-  BASE + '/',
-  BASE + '/index.html',
-  BASE + '/manifest.json',
+  '/app',
+  '/index.html',
+  '/manifest.json',
   'https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js',
   'https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap',
 ];
@@ -26,12 +25,14 @@ self.addEventListener('fetch', e => {
   const url = new URL(e.request.url);
   if(url.protocol === 'wss:' || url.protocol === 'ws:') return;
   if(url.pathname.includes('/signal')) return;
+  // Не кешируем API агента
+  if(['/ls','/cwd','/run','/cd','/read','/write','/open','/input','/stream','/screeninfo'].includes(url.pathname)) return;
 
   if(e.request.mode === 'navigate'){
     e.respondWith(
       fetch(e.request)
         .then(r => { caches.open(CACHE).then(c => c.put(e.request, r.clone())); return r; })
-        .catch(() => caches.match(BASE + '/index.html'))
+        .catch(() => caches.match('/app'))
     );
     return;
   }

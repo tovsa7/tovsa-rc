@@ -1156,13 +1156,17 @@ function scrFpsLoop(){
 // ── HOST side ─────────────────────────────────────────
 async function scrHostStart(){
   // Called on the device that will share its screen
+  rlog('mediaDevices: '+(typeof navigator.mediaDevices));
+  rlog('getDisplayMedia: '+(typeof navigator.mediaDevices?.getDisplayMedia));
+  rlog('getUserMedia: '+(typeof navigator.mediaDevices?.getUserMedia));
+  rlog('isSecure: '+window.isSecureContext+' proto: '+location.protocol);
   try{
     _scrStream = await navigator.mediaDevices.getDisplayMedia({
       video:{frameRate:{ideal:30,max:30}, width:{ideal:1080}, height:{ideal:1920}},
       audio:false
     });
   }catch(e){
-    rlog('getDisplayMedia: '+e.message,'err');
+    rlog('getDisplayMedia err: '+e.message,'err');
     toast('Отклонено или не поддерживается','err');
     return;
   }

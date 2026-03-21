@@ -396,14 +396,12 @@ select{cursor:pointer;appearance:none;
 
   <!-- Inner tabs -->
   <div class="inner-tabbar">
-    <button class="inner-tab act" id="itab-chat"     onclick="switchInnerTab('chat')">💬 Чат</button>
-    <button class="inner-tab"     id="itab-commands" onclick="switchInnerTab('commands')">🖥 Команды</button>
-    <button class="inner-tab"     id="itab-files"    onclick="switchInnerTab('files')">📁 Файлы</button>
+    <button class="inner-tab act" id="itab-commands" onclick="switchInnerTab('commands')">⚡ Агент</button>
     <button class="inner-tab"     id="itab-screen"   onclick="switchInnerTab('screen')">📺 Экран</button>
   </div>
 
   <!-- ── CHAT panel ── -->
-  <div class="inner-panel on" id="ipanel-chat">
+  <div class="inner-panel" id="ipanel-chat" style="display:none!important">
     <div style="padding:3px 12px;background:var(--sf);border-bottom:1px solid var(--bd);display:flex;justify-content:flex-end;flex-shrink:0"><button onclick="clearChatHistory()" style="background:none;border:none;font-size:10px;color:var(--mu);cursor:pointer;padding:3px 8px;font-family:inherit">🗑 История</button></div>
     <div class="msgs" id="msgs"></div>
     <div class="iarea">
@@ -413,51 +411,8 @@ select{cursor:pointer;appearance:none;
   </div>
 
   <!-- ── COMMANDS panel ── -->
-  <div class="inner-panel" id="ipanel-commands">
-    <div id="rtc-prompt" class="rtc-prompt" style="display:none">
-      <div class="rtc-prompt-text">Нужен RTC-канал для отправки команд</div>
-      <button class="rtc-prompt-btn" onclick="devStartRtc()">Подключить</button>
-    </div>
+  <div class="inner-panel on" id="ipanel-commands">
     <div class="section-scroll" style="padding-top:10px">
-      <div class="r-card">
-        <div class="r-card-title">🌐 Открыть URL</div>
-        <input id="r-url" placeholder="http://localhost:8080" value="http://localhost:8080">
-        <div class="presets">
-          <button class="preset" onclick="setUrl('http://localhost:8080')">:8080</button>
-          <button class="preset" onclick="setUrl('http://localhost:3000')">:3000</button>
-          <button class="preset" onclick="setUrl('http://localhost:5173')">:5173</button>
-          <button class="preset" onclick="setUrl('http://localhost:4000')">:4000</button>
-          <button class="preset" onclick="setUrl('about:blank')">blank</button>
-        </div>
-        <div class="row">
-          <select id="r-target" style="flex:0 0 150px">
-            <option value="_blank">Новая вкладка</option>
-            <option value="_self">Текущая вкладка</option>
-            <option value="popup">Попап</option>
-          </select>
-          <button class="btn" onclick="sendOpenUrl()" style="flex:1">▶ Открыть</button>
-        </div>
-      </div>
-      <div class="r-card">
-        <div class="r-card-title">⚡ Выполнить JS</div>
-        <textarea id="r-js" placeholder="// eval() на удалённом устройстве&#10;document.title = 'Hello!'" style="height:72px;font-size:12px"></textarea>
-        <div class="row">
-          <button class="btn" onclick="sendEval()" style="background:var(--w);flex:2">Выполнить</button>
-          <button class="btn ghost sm" onclick="sendQuery('title')" style="flex:1">Title</button>
-          <button class="btn ghost sm" onclick="sendQuery('url')" style="flex:1">URL</button>
-        </div>
-      </div>
-      <div class="r-card">
-        <div class="r-card-title">🎤 Микрофон</div>
-        <div style="font-size:11px;color:var(--mu);margin-bottom:6px">Запись с микрофона устройства</div>
-        <div class="presets">
-          <button class="preset" onclick="sendAudioRecord(5)">5с</button>
-          <button class="preset" onclick="sendAudioRecord(10)">10с</button>
-          <button class="preset" onclick="sendAudioRecord(30)">30с</button>
-        </div>
-        <button class="btn sm full" onclick="sendAudioRecord(10)" style="margin-top:4px">🎤 Записать 10с</button>
-      </div>
-
       <div class="r-card" id="agent-card">
         <div class="r-card-title" style="justify-content:space-between">
           <span>⚡ Агент</span>
@@ -489,19 +444,11 @@ select{cursor:pointer;appearance:none;
           <div id="agent-output" style="display:none;background:var(--bg);border:1px solid var(--bd);border-radius:8px;padding:8px 10px;font-size:10px;line-height:1.7;max-height:160px;overflow-y:auto;white-space:pre-wrap;word-break:break-all"></div>
         </div>
       </div>
-
-      <div class="r-card">
-        <div class="r-card-title" style="justify-content:space-between">
-          <span>📋 Лог</span>
-          <button class="btn ghost sm" onclick="copyLog()" style="padding:2px 8px;font-size:9px">копировать</button>
-        </div>
-        <div class="r-log" id="r-log"><span style="color:var(--mu)">Нет записей...</span></div>
-      </div>
     </div>
   </div>
 
   <!-- ── FILES panel ── -->
-  <div class="inner-panel" id="ipanel-files">
+  <div class="inner-panel" id="ipanel-files" style="display:none!important">
     <!-- My folder (host mode) -->
     <div id="fm-my" style="display:flex;flex-direction:column;height:100%;overflow:hidden">
       <!-- Toggle: my folder vs remote -->
@@ -807,7 +754,7 @@ function openDevice(id){
   updateDevRtcBadge(id);
   // Render chat
   renderDeviceChat(id);
-  // Auto-switch to files if we came from files toggle
+  switchInnerTab('commands');
 }
 
 function closeDevice(){
@@ -825,7 +772,7 @@ function closeDevice(){
 }
 
 function switchInnerTab(name){
-  const all=['chat','commands','files','screen'];
+  const all=['commands','screen'];
   const cur=all.find(t=>$('ipanel-'+t)?.classList.contains('on'));
   const dir=all.indexOf(name)>all.indexOf(cur)?'Right':'Left';
   all.forEach(t=>{

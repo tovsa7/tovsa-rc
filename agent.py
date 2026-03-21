@@ -260,7 +260,7 @@ def _vnc_capture_jpeg(quality=65, scale=1.0):
 
 VNC_AVAILABLE = False
 try:
-    _vnc_connect("")
+    _vnc_connect(VNC_PASS)
     VNC_AVAILABLE = True
     _vnc_sock = None  # reconnect on demand
     print(f"  ✓  VNC доступен ({_vnc_w}×{_vnc_h})")

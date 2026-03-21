@@ -153,7 +153,7 @@ CWD = str(Path.home() / "storage" / "shared") if IS_TERMUX and (Path.home() / "s
 _vnc_sock = None
 _vnc_w    = 0
 _vnc_h    = 0
-VNC_PASS  = ""  # set by vncserver on first run
+VNC_PASS  = "123456"
 
 def _des_key(password):
     """Reverse bit order of each byte for VNC DES."""
@@ -162,10 +162,14 @@ def _des_key(password):
 
 def _des_encrypt(key, data):
     try:
-        from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
+        try:
+            from cryptography.hazmat.decrepit.ciphers.algorithms import TripleDES
+        except ImportError:
+            from cryptography.hazmat.primitives.ciphers.algorithms import TripleDES
+        from cryptography.hazmat.primitives.ciphers import Cipher, modes
         from cryptography.hazmat.backends import default_backend
         k = _des_key(key)
-        c = Cipher(algorithms.TripleDES(k * 3), modes.ECB(), backend=default_backend())
+        c = Cipher(TripleDES(k * 3), modes.ECB(), backend=default_backend())
         enc = c.encryptor()
         return enc.update(data) + enc.finalize()
     except Exception:

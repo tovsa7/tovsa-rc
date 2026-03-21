@@ -3,12 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <script>
-// Сносим старые service worker-ы (например с GitHub Pages)
+// Сносим ВСЕ старые service worker-ы при каждой загрузке
 if('serviceWorker' in navigator){
-  navigator.serviceWorker.getRegistrations().then(regs => {
-    for(const r of regs){
-      if(!r.scope.includes('localhost')) r.unregister();
-    }
+  navigator.serviceWorker.getRegistrations().then(regs=>{
+    regs.forEach(r=>{ r.update(); });
   });
 }
 </script>
@@ -1518,6 +1516,8 @@ function rlog(msg,cls=''){
   if(el.children.length===1&&el.children[0].tagName==='SPAN') el.innerHTML='';
   const d=document.createElement('div'); d.className=cls?'l-'+cls:''; d.textContent='['+tsNow()+'] '+msg;
   el.appendChild(d); el.scrollTop=el.scrollHeight;
+  // Дублируем в agentLog для видимости из таббара
+  agentLog('['+tsNow()+'] '+msg);
 }
 
 // ── Device list ───────────────────────────────────────

@@ -1,4 +1,4 @@
-const CACHE = 'tvrc-v2';
+const CACHE = 'tvrc-v3';
 const ASSETS = [
   '/app',
   '/index.html',

@@ -1395,6 +1395,11 @@ function handleDcMsg(from,msg){
     case 'fs_read_end':   fsCtrlHandleReadEnd(msg);   break;
     case 'fs_ok':         fsCtrlHandleOk(msg);        break;
     case 'fs_err':        fsCtrlHandleErr(msg);       break;
+    // Screen mirror
+    case 'screen_start':  screenDcHostStart(from,msg); break;
+    case 'screen_stop':   screenDcHostStop(from);      break;
+    case 'screen_frame':  screenDcCtrlFrame(msg);      break;
+    case 'screen_input':  screenDcHostInput(from,msg); break;
   }
 }
 
@@ -2075,12 +2080,20 @@ function screenStop(){
 }
 
 function screenToggle(){
-  if(_screenRunning) screenStop(); else screenStart();
+  // Если есть currentDevice — стримим через DC, иначе локально через агент
+  if(_screenRunning){
+    if(currentDevice) screenDcRequestStop(); else screenStop();
+  } else {
+    if(currentDevice) screenDcRequestStart(); else screenStart();
+  }
 }
 
 function screenSetQuality(q){
   _screenQuality = q;
-  if(_screenRunning){ screenStop(); screenStart(); }
+  if(_screenRunning){
+    if(currentDevice){ screenDcRequestStop(); setTimeout(screenDcRequestStart, 200); }
+    else { screenStop(); screenStart(); }
+  }
 }
 
 // ── Нормализуем координаты внутри <img> → 0..1 ────────
@@ -2136,14 +2149,12 @@ function screenPointerUp(e){
   _screenFlash(e);
 
   if(dx < 0.02 && dy < 0.02){
-    // Тап
-    agentFetch('/input',{type:'tap', x:c.x, y:c.y}).catch(()=>{});
+    const inp = {type:'tap', x:c.x, y:c.y};
+    if(currentDevice) screenDcSendInput(inp); else agentFetch('/input', inp).catch(()=>{});
   } else {
-    // Свайп
     const ms = Math.max(100, Math.min(dt, 600));
-    agentFetch('/input',{type:'swipe',
-      x1:_screenPtrDownX, y1:_screenPtrDownY,
-      x2:c.x, y2:c.y, ms}).catch(()=>{});
+    const inp = {type:'swipe', x1:_screenPtrDownX, y1:_screenPtrDownY, x2:c.x, y2:c.y, ms};
+    if(currentDevice) screenDcSendInput(inp); else agentFetch('/input', inp).catch(()=>{});
   }
 }
 
@@ -2152,15 +2163,146 @@ function screenPointerMove(e){
 }
 
 function screenKey(keycode){
-  agentFetch('/input',{type:'key', keycode}).catch(()=>{});
+  const inp = {type:'key', keycode};
+  if(currentDevice) screenDcSendInput(inp); else agentFetch('/input', inp).catch(()=>{});
 }
 
 function screenSendText(){
-  const inp = $('screen-text-inp');
-  const text = inp.value;
+  const el = $('screen-text-inp');
+  const text = el.value;
   if(!text) return;
-  inp.value = '';
-  agentFetch('/input',{type:'text', text}).catch(()=>{});
+  el.value = '';
+  const inp = {type:'text', text};
+  if(currentDevice) screenDcSendInput(inp); else agentFetch('/input', inp).catch(()=>{});
+}
+
+// ── Screen mirror via DataChannel ────────────────────
+let _screenDcRunning = false;   // этот браузер стримит
+let _screenDcTo = null;         // кому стримим
+let _screenDcTimer = null;
+
+// HOST: контроллер просит начать стрим
+async function screenDcHostStart(from, msg) {
+  _screenDcTo = from;
+  _screenDcRunning = true;
+  const fps = msg.fps || 5;
+  const quality = msg.quality || 65;
+  agentLog('← screen_start от ' + from.slice(0,14));
+  _screenDcLoop(fps, quality);
+}
+
+// HOST: контроллер просит остановить
+function screenDcHostStop(from) {
+  _screenDcRunning = false;
+  _screenDcTo = null;
+  clearTimeout(_screenDcTimer);
+  agentLog('← screen_stop');
+}
+
+// HOST: получили команду ввода от контроллера
+function screenDcHostInput(from, msg) {
+  agentFetch('/input', msg).catch(() => {});
+}
+
+// HOST: цикл захвата и отправки кадров
+async function _screenDcLoop(fps, quality) {
+  if (!_screenDcRunning || !_screenDcTo) return;
+  const interval = Math.round(1000 / fps);
+  try {
+    const resp = await fetch(_agentUrl.replace(/\/+$/, '') + '/stream?q=' + quality, {signal: AbortSignal.timeout(3000)});
+    const reader = resp.body.getReader();
+    let buf = new Uint8Array(0);
+    const boundary = new TextEncoder().encode('--frame');
+
+    const pump = async () => {
+      if (!_screenDcRunning) { reader.cancel(); return; }
+      const { done, value } = await reader.read();
+      if (done) return;
+      // accumulate
+      const tmp = new Uint8Array(buf.length + value.length);
+      tmp.set(buf); tmp.set(value, buf.length);
+      buf = tmp;
+      // find complete frame: --frame\r\nContent-Type:...\r\n\r\n<data>\r\n
+      const frameStart = _indexOfSeq(buf, new TextEncoder().encode('\r\n\r\n'));
+      if (frameStart !== -1) {
+        const dataStart = frameStart + 4;
+        const frameEnd  = _indexOfSeq(buf, boundary, dataStart);
+        if (frameEnd !== -1) {
+          const frameBytes = buf.slice(dataStart, frameEnd - 2); // strip trailing \r\n
+          // detect mime from header
+          const header = new TextDecoder().decode(buf.slice(0, frameStart));
+          const mime = header.includes('jpeg') ? 'image/jpeg' : 'image/png';
+          // encode to base64
+          let b64 = '';
+          const chunk = 8192;
+          for (let i = 0; i < frameBytes.length; i += chunk) {
+            b64 += String.fromCharCode(...frameBytes.slice(i, i + chunk));
+          }
+          b64 = btoa(b64);
+          dcSend(_screenDcTo, {type: 'screen_frame', b64, mime});
+          buf = buf.slice(frameEnd);
+          // throttle
+          _screenDcTimer = setTimeout(() => pump(), interval);
+          return;
+        }
+      }
+      await pump();
+    };
+    await pump();
+  } catch (e) {
+    agentLog('screen loop err: ' + e.message);
+    if (_screenDcRunning) {
+      _screenDcTimer = setTimeout(() => _screenDcLoop(fps, quality), 2000);
+    }
+  }
+}
+
+function _indexOfSeq(buf, seq, from = 0) {
+  outer: for (let i = from; i <= buf.length - seq.length; i++) {
+    for (let j = 0; j < seq.length; j++) {
+      if (buf[i + j] !== seq[j]) continue outer;
+    }
+    return i;
+  }
+  return -1;
+}
+
+// CONTROLLER: получили кадр от устройства
+function screenDcCtrlFrame(msg) {
+  const img = $('screen-img');
+  if (!img) return;
+  img.src = 'data:' + msg.mime + ';base64,' + msg.b64;
+  // FPS counter
+  _screenFpsCount++;
+}
+
+// CONTROLLER: запросить стрим у текущего устройства
+function screenDcRequestStart() {
+  if (!currentDevice) return;
+  dcSend(currentDevice, {type: 'screen_start', fps: 8, quality: _screenQuality});
+  _screenRunning = true;
+  _screenFpsTs = performance.now();
+  _screenFpsCount = 0;
+  $('screen-toggle-btn').textContent = '⏹ Стоп';
+  $('screen-toggle-btn').style.background = 'var(--e)';
+  _screenAnimLoop();
+}
+
+function screenDcRequestStop() {
+  if (!currentDevice) return;
+  dcSend(currentDevice, {type: 'screen_stop'});
+  _screenRunning = false;
+  const img = $('screen-img');
+  if (img) img.src = '';
+  $('screen-toggle-btn').textContent = '▶ Старт';
+  $('screen-toggle-btn').style.background = '';
+  $('screen-fps').textContent = '— fps';
+}
+
+// CONTROLLER: отправить ввод на устройство
+function screenDcSendInput(inputMsg) {
+  if (!currentDevice) return;
+  dcSend(currentDevice, {type: 'screen_input', ...inputMsg});
 }
 
 // ── NAT Detection ────────────────────────────────────

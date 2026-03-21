@@ -240,10 +240,11 @@ textarea{resize:none;line-height:1.5}
             Запусти на устройстве:<br>
             <code style="color:var(--a);cursor:pointer;user-select:all" onclick="copyText(this.textContent)">python3 -c "$(curl -fsSL https://tovsa7.github.io/tovsa-rc/bootstrap.py)"</code>
             <br><span style="opacity:.6">Termux:</span><br>
-            <code style="color:var(--a);cursor:pointer;user-select:all" onclick="copyText(this.textContent)">pkg install python curl && python3 -c "$(curl -fsSL https://tovsa7.github.io/tovsa-rc/bootstrap.py)"</code>
+            <code style="color:var(--a);cursor:pointer;user-select:all" onclick="copyText(this.textContent)">pkg install python curl python-cryptography && python3 -c "$(curl -fsSL https://tovsa7.github.io/tovsa-rc/bootstrap.py)"</code>
+          <br><span style="opacity:.5;font-size:10px">⚠ Первый раз: открой <code style="color:var(--a)" onclick="copyText('https://localhost:7071')">https://localhost:7071</code> в браузере → «Дополнительно» → «Всё равно перейти»</span>
           </div>
           <div class="row">
-            <input id="agent-url" value="http://localhost:7070" style="flex:1;font-size:11px">
+            <input id="agent-url" value="https://localhost:7071" style="flex:1;font-size:11px">
             <button class="btn sm" id="btn-agent-connect" onclick="agentConnect()">Подключить</button>
           </div>
           <div id="agent-info" style="display:none;font-size:11px;color:var(--mu);line-height:1.8"></div>
@@ -377,7 +378,7 @@ const rtcs  = {};   // id → {pc,dc,state,aesKey,pending:[]}
 let currentDevice = null;
 
 // Agent
-let _agentUrl = 'http://localhost:7070';
+let _agentUrl = 'https://localhost:7071';
 let _agentCwd = '';
 
 // Screen
@@ -1167,7 +1168,12 @@ async function scrHostStart(){
     });
   }catch(e){
     rlog('getDisplayMedia err: '+e.message,'err');
-    toast('Отклонено или не поддерживается','err');
+    if(e.message.includes('not a function')){
+      toast('getDisplayMedia не поддерживается — нужен HTTPS','err',5000);
+      rlog('Открой https://localhost:7071/app вместо http://','err');
+    } else {
+      toast('Отклонено: '+e.message,'err');
+    }
     return;
   }
 

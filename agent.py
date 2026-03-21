@@ -1,38 +1,94 @@
 #!/usr/bin/env python3
 """
-Tovsa RC Agent v1.2
-Слушает на http://localhost:7070
-Chrome разрешает fetch() к localhost из HTTPS-страниц (W3C Secure Contexts).
-Требования: Python 3.7+, никаких зависимостей. Для стрима: pip install pillow
+Tovsa RC Agent v1.3
+HTTPS на localhost:7071 (нужен для getDisplayMedia)
+HTTP  на localhost:7070 (fallback)
+Требования: Python 3.7+, python-cryptography (pkg install python-cryptography)
 """
 
 import json
 import os
+import ssl
 import subprocess
 import sys
 import time
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
 from socketserver import ThreadingMixIn
+from datetime import datetime, timezone, timedelta
 
-PORT = 7070
-HOST = "localhost"
-
+PORT_HTTPS = 7071
+PORT_HTTP  = 7070
+HOST       = "localhost"
 INSTALL_DIR = Path.home() / ".tovsa"
+CERT_FILE   = INSTALL_DIR / "cert.pem"
+KEY_FILE    = INSTALL_DIR / "key.pem"
 
 
-def _default_cwd():
-    termux_home = Path("/data/data/com.termux/files/home")
-    if termux_home.exists():
-        shared = termux_home / "storage" / "shared"
-        if shared.exists():
-            return str(shared)
-        return str(termux_home)
-    return str(Path.home())
+# ── Cert generation via cryptography ──────────────────
+def _gen_cert() -> bool:
+    try:
+        from cryptography import x509
+        from cryptography.x509.oid import NameOID
+        from cryptography.hazmat.primitives import hashes, serialization
+        from cryptography.hazmat.primitives.asymmetric import rsa
+        import ipaddress
 
-CWD       = _default_cwd()
-IS_TERMUX = Path("/data/data/com.termux/files/home").exists()
+        key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+        subject = issuer = x509.Name([
+            x509.NameAttribute(NameOID.COMMON_NAME, "localhost"),
+        ])
+        now = datetime.now(timezone.utc)
+        cert = (
+            x509.CertificateBuilder()
+            .subject_name(subject)
+            .issuer_name(issuer)
+            .public_key(key.public_key())
+            .serial_number(x509.random_serial_number())
+            .not_valid_before(now)
+            .not_valid_after(now + timedelta(days=3650))
+            .add_extension(x509.SubjectAlternativeName([
+                x509.DNSName("localhost"),
+                x509.IPAddress(ipaddress.IPv4Address("127.0.0.1")),
+            ]), critical=False)
+            .add_extension(x509.BasicConstraints(ca=True, path_length=None), critical=True)
+            .sign(key, hashes.SHA256())
+        )
+        INSTALL_DIR.mkdir(parents=True, exist_ok=True)
+        KEY_FILE.write_bytes(key.private_bytes(
+            serialization.Encoding.PEM,
+            serialization.PrivateFormat.TraditionalOpenSSL,
+            serialization.NoEncryption(),
+        ))
+        CERT_FILE.write_bytes(cert.public_bytes(serialization.Encoding.PEM))
+        return True
+    except Exception as e:
+        print(f"  ✗  Ошибка генерации сертификата: {e}")
+        return False
 
+
+def _ensure_cert() -> bool:
+    if CERT_FILE.exists() and KEY_FILE.exists():
+        return True
+    print("  ⚙  Генерирую TLS сертификат...")
+    ok = _gen_cert()
+    if ok:
+        print(f"  ✓  {CERT_FILE}")
+        print(f"  ℹ  Открой https://localhost:{PORT_HTTPS} в браузере и прими сертификат (один раз)")
+    return ok
+
+
+def _make_ssl_ctx():
+    try:
+        ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+        ctx.load_cert_chain(str(CERT_FILE), str(KEY_FILE))
+        return ctx
+    except Exception as e:
+        print(f"  ✗  SSL: {e}")
+        return None
+
+
+# ── Screen ─────────────────────────────────────────────
 _screen_size = None
 
 def _get_screen_size():
@@ -53,14 +109,6 @@ def _get_screen_size():
     return _screen_size
 
 
-def _capture_png():
-    try:
-        r = subprocess.run(["screencap", "-p"], capture_output=True, timeout=4)
-        return r.stdout if r.returncode == 0 and r.stdout else None
-    except Exception:
-        return None
-
-
 def _capture_jpeg(quality=65, scale=1.0):
     try:
         from PIL import Image
@@ -79,17 +127,30 @@ def _capture_jpeg(quality=65, scale=1.0):
         return None
 
 
+def _capture_png():
+    try:
+        r = subprocess.run(["screencap", "-p"], capture_output=True, timeout=4)
+        return r.stdout if r.returncode == 0 and r.stdout else None
+    except Exception:
+        return None
+
+
 try:
     from PIL import Image as _pil
     HAS_PILLOW = True
 except ImportError:
     HAS_PILLOW = False
 
+IS_TERMUX = Path("/data/data/com.termux/files/home").exists()
 
+CWD = str(Path.home() / "storage" / "shared") if IS_TERMUX and (Path.home() / "storage" / "shared").exists() else str(Path.home())
+
+
+# ── Handler ────────────────────────────────────────────
 class AgentHandler(BaseHTTPRequestHandler):
 
-    def log_message(self, format, *args):
-        print(f"  [{self.address_string()}] {format % args}")
+    def log_message(self, fmt, *args):
+        print(f"  [{self.address_string()}] {fmt % args}")
 
     def _cors(self):
         self.send_header("Access-Control-Allow-Origin",  "*")
@@ -97,23 +158,20 @@ class AgentHandler(BaseHTTPRequestHandler):
         self.send_header("Access-Control-Allow-Headers", "Content-Type")
 
     def send_json(self, data, status=200):
-        body = json.dumps(data, ensure_ascii=False).encode("utf-8")
+        body = json.dumps(data, ensure_ascii=False).encode()
         self.send_response(status)
-        self.send_header("Content-Type",   "application/json; charset=utf-8")
+        self.send_header("Content-Type", "application/json; charset=utf-8")
         self.send_header("Content-Length", str(len(body)))
         self._cors()
         self.end_headers()
         self.wfile.write(body)
 
     def do_OPTIONS(self):
-        self.send_response(204)
-        self._cors()
-        self.end_headers()
+        self.send_response(204); self._cors(); self.end_headers()
 
     def do_GET(self):
         global CWD
 
-        # Отдаём index.html — полноценный Tovsa RC без mixed content
         STATIC = {
             "/app":           ("index.html",   "text/html; charset=utf-8"),
             "/app/":          ("index.html",   "text/html; charset=utf-8"),
@@ -122,16 +180,15 @@ class AgentHandler(BaseHTTPRequestHandler):
             "/sw.js":         ("sw.js",        "application/javascript"),
         }
         if self.path in STATIC:
-            filename, mime = STATIC[self.path]
-            file_path = INSTALL_DIR / filename
-            if not file_path.exists():
-                self.send_json({"error": f"{filename} не найден — перезапусти bootstrap"}, 404)
-                return
-            body = file_path.read_bytes()
+            fname, mime = STATIC[self.path]
+            fpath = INSTALL_DIR / fname
+            if not fpath.exists():
+                self.send_json({"error": f"{fname} not found"}, 404); return
+            body = fpath.read_bytes()
             self.send_response(200)
-            self.send_header("Content-Type",   mime)
+            self.send_header("Content-Type", mime)
             self.send_header("Content-Length", str(len(body)))
-            self.send_header("Cache-Control",  "no-store, no-cache, must-revalidate")
+            self.send_header("Cache-Control", "no-store")
             self._cors()
             self.end_headers()
             self.wfile.write(body)
@@ -139,39 +196,35 @@ class AgentHandler(BaseHTTPRequestHandler):
 
         if self.path == "/":
             self.send_json({
-                "name": "Tovsa RC Agent", "version": "1.2",
+                "name": "Tovsa RC Agent", "version": "1.3",
                 "platform": sys.platform, "cwd": CWD,
                 "python": sys.version.split()[0],
                 "termux": IS_TERMUX,
                 "storage": str(Path.home() / "storage") if IS_TERMUX else None,
                 "pillow": HAS_PILLOW,
-                "app": f"http://localhost:{PORT}/app",
+                "tls": getattr(self.server, 'is_https', False),
             })
             return
 
         if self.path == "/cwd":
-            self.send_json({"cwd": CWD})
-            return
+            self.send_json({"cwd": CWD}); return
 
         if self.path == "/ls":
             try:
                 entries = []
                 p = Path(CWD)
-                if IS_TERMUX and str(p) == str(Path("/data/data/com.termux/files/home")):
-                    storage_root = p / "storage"
-                    if storage_root.exists():
-                        for sub in sorted(storage_root.iterdir()):
+                if IS_TERMUX and str(p) == str(Path.home()):
+                    sr = p / "storage"
+                    if sr.exists():
+                        for sub in sorted(sr.iterdir()):
                             if sub.is_symlink() or sub.is_dir():
-                                entries.append({"name": sub.name, "type": "dir", "size": None,
-                                                "_path": str(sub.resolve())})
-                for entry in sorted(p.iterdir()):
-                    if entry.name == "storage" and IS_TERMUX:
-                        continue
+                                entries.append({"name": sub.name, "type": "dir", "size": None, "_path": str(sub.resolve())})
+                for e in sorted(p.iterdir()):
+                    if e.name == "storage" and IS_TERMUX: continue
                     try:
-                        stat = entry.stat()
-                        entries.append({"name": entry.name,
-                                        "type": "dir" if entry.is_dir() else "file",
-                                        "size": stat.st_size if entry.is_file() else None})
+                        st = e.stat()
+                        entries.append({"name": e.name, "type": "dir" if e.is_dir() else "file",
+                                        "size": st.st_size if e.is_file() else None})
                     except PermissionError:
                         pass
                 self.send_json({"cwd": CWD, "entries": entries})
@@ -181,18 +234,16 @@ class AgentHandler(BaseHTTPRequestHandler):
 
         if self.path == "/screeninfo":
             w, h = _get_screen_size()
-            self.send_json({"width": w, "height": h, "pillow": HAS_PILLOW})
-            return
+            self.send_json({"width": w, "height": h, "pillow": HAS_PILLOW}); return
 
         if self.path.startswith("/stream"):
-            quality = 65
-            scale   = 1.0
+            quality, scale = 65, 1.0
             if "q=" in self.path:
                 try: quality = int(self.path.split("q=")[1].split("&")[0])
-                except Exception: pass
+                except: pass
             if "s=" in self.path:
                 try: scale = float(self.path.split("s=")[1].split("&")[0])
-                except Exception: pass
+                except: pass
             quality = max(10, min(95, quality))
             scale   = max(0.2, min(1.0, scale))
 
@@ -201,15 +252,13 @@ class AgentHandler(BaseHTTPRequestHandler):
             self.send_header("Cache-Control", "no-cache, no-store")
             self._cors()
             self.end_headers()
-
             try:
                 while True:
-                    t0    = time.monotonic()
+                    t0 = time.monotonic()
                     frame = _capture_jpeg(quality, scale) if HAS_PILLOW else _capture_png()
                     mime  = b"image/jpeg" if HAS_PILLOW else b"image/png"
                     if frame is None:
-                        time.sleep(0.5)
-                        continue
+                        time.sleep(0.5); continue
                     self.wfile.write(
                         b"--frame\r\nContent-Type: " + mime +
                         b"\r\nContent-Length: " + str(len(frame)).encode() +
@@ -218,8 +267,7 @@ class AgentHandler(BaseHTTPRequestHandler):
                     self.wfile.flush()
                     elapsed = time.monotonic() - t0
                     sleep = max(0.0, 0.066 - elapsed)
-                    if sleep:
-                        time.sleep(sleep)
+                    if sleep: time.sleep(sleep)
             except (BrokenPipeError, ConnectionResetError, OSError):
                 pass
             return
@@ -229,26 +277,20 @@ class AgentHandler(BaseHTTPRequestHandler):
     def do_POST(self):
         global CWD
         length = int(self.headers.get("Content-Length", 0))
-        body   = self.rfile.read(length)
         try:
-            data = json.loads(body)
-        except Exception:
-            self.send_json({"error": "Invalid JSON"}, 400)
-            return
+            data = json.loads(self.rfile.read(length))
+        except:
+            self.send_json({"error": "Invalid JSON"}, 400); return
 
         if self.path == "/run":
-            cmd     = data.get("cmd", "").strip()
-            cwd     = data.get("cwd", CWD)
+            cmd = data.get("cmd","").strip()
+            cwd = data.get("cwd", CWD)
             timeout = min(int(data.get("timeout", 30)), 120)
-            if not cmd:
-                self.send_json({"error": "Empty command"}, 400)
-                return
-            print(f"  RUN: {cmd!r}  (cwd={cwd})")
+            if not cmd: self.send_json({"error": "Empty command"}, 400); return
             try:
-                result = subprocess.run(cmd, shell=True, cwd=cwd, capture_output=True,
-                                        text=True, timeout=timeout, encoding="utf-8", errors="replace")
-                self.send_json({"stdout": result.stdout, "stderr": result.stderr,
-                                "code": result.returncode, "cmd": cmd})
+                r = subprocess.run(cmd, shell=True, cwd=cwd, capture_output=True,
+                                   text=True, timeout=timeout, encoding="utf-8", errors="replace")
+                self.send_json({"stdout": r.stdout, "stderr": r.stderr, "code": r.returncode, "cmd": cmd})
             except subprocess.TimeoutExpired:
                 self.send_json({"error": f"Timeout ({timeout}s)", "code": -1})
             except Exception as e:
@@ -256,103 +298,62 @@ class AgentHandler(BaseHTTPRequestHandler):
             return
 
         if self.path == "/cd":
-            path = data.get("path", "").strip()
-            if not path:
-                self.send_json({"error": "Empty path"}, 400)
-                return
-            new_path = (Path(CWD) / path if not os.path.isabs(path) else Path(path)).resolve()
-            if not new_path.exists():
-                self.send_json({"error": f"Путь не существует: {new_path}"}, 404)
-                return
-            if not new_path.is_dir():
-                self.send_json({"error": f"Не директория: {new_path}"}, 400)
-                return
-            CWD = str(new_path)
-            self.send_json({"cwd": CWD})
-            return
+            path = data.get("path","").strip()
+            if not path: self.send_json({"error": "Empty path"}, 400); return
+            np = (Path(CWD) / path if not os.path.isabs(path) else Path(path)).resolve()
+            if not np.exists(): self.send_json({"error": f"Not found: {np}"}, 404); return
+            if not np.is_dir(): self.send_json({"error": f"Not a dir: {np}"}, 400); return
+            CWD = str(np)
+            self.send_json({"cwd": CWD}); return
 
         if self.path == "/open":
-            path = data.get("path", "").strip()
-            if not path:
-                self.send_json({"error": "Empty path"}, 400)
-                return
+            path = data.get("path","").strip()
             full = (Path(CWD) / path if not os.path.isabs(path) else Path(path))
-            if not full.exists():
-                self.send_json({"error": f"Файл не найден: {full}"}, 404)
-                return
+            if not full.exists(): self.send_json({"error": f"Not found: {full}"}, 404); return
             try:
-                if sys.platform == "darwin":
-                    subprocess.Popen(["open", str(full)])
-                elif sys.platform == "win32":
-                    os.startfile(str(full))
-                else:
-                    subprocess.Popen(["xdg-open", str(full)])
-                self.send_json({"ok": True, "path": str(full)})
+                if sys.platform == "darwin": subprocess.Popen(["open", str(full)])
+                elif sys.platform == "win32": os.startfile(str(full))
+                else: subprocess.Popen(["xdg-open", str(full)])
+                self.send_json({"ok": True})
             except Exception as e:
                 self.send_json({"error": str(e)}, 500)
             return
 
         if self.path == "/write":
-            path    = data.get("path", "").strip()
-            content = data.get("content", "")
-            if not path:
-                self.send_json({"error": "Empty path"}, 400)
-                return
+            path = data.get("path","").strip()
             full = (Path(CWD) / path if not os.path.isabs(path) else Path(path))
             try:
                 full.parent.mkdir(parents=True, exist_ok=True)
-                full.write_text(content, encoding="utf-8")
-                self.send_json({"ok": True, "path": str(full)})
+                full.write_text(data.get("content",""), encoding="utf-8")
+                self.send_json({"ok": True})
             except Exception as e:
                 self.send_json({"error": str(e)}, 500)
             return
 
         if self.path == "/read":
-            path = data.get("path", "").strip()
-            if not path:
-                self.send_json({"error": "Empty path"}, 400)
-                return
+            path = data.get("path","").strip()
             full = (Path(CWD) / path if not os.path.isabs(path) else Path(path))
-            try:
-                if not full.exists():
-                    self.send_json({"error": f"Файл не найден: {full}"}, 404)
-                    return
-                size = full.stat().st_size
-                if size > 1_000_000:
-                    self.send_json({"error": f"Файл слишком большой: {size} байт"}, 400)
-                    return
-                content = full.read_text(encoding="utf-8", errors="replace")
-                self.send_json({"content": content, "path": str(full), "size": size})
-            except Exception as e:
-                self.send_json({"error": str(e)}, 500)
-            return
+            if not full.exists(): self.send_json({"error": f"Not found: {full}"}, 404); return
+            size = full.stat().st_size
+            if size > 1_000_000: self.send_json({"error": "Too large"}, 400); return
+            self.send_json({"content": full.read_text(encoding="utf-8", errors="replace"), "size": size}); return
 
         if self.path == "/input":
-            kind = data.get("type", "")
+            kind = data.get("type","")
             try:
                 w, h = _get_screen_size()
                 if kind == "tap":
-                    x = int(float(data["x"]) * w)
-                    y = int(float(data["y"]) * h)
-                    subprocess.run(["input", "tap", str(x), str(y)], timeout=3)
-                    self.send_json({"ok": True})
+                    subprocess.run(["input","tap",str(int(float(data["x"])*w)),str(int(float(data["y"])*h))],timeout=3)
                 elif kind == "swipe":
-                    x1 = int(float(data["x1"]) * w);  y1 = int(float(data["y1"]) * h)
-                    x2 = int(float(data["x2"]) * w);  y2 = int(float(data["y2"]) * h)
-                    ms = int(data.get("ms", 200))
-                    subprocess.run(["input", "swipe", str(x1), str(y1), str(x2), str(y2), str(ms)], timeout=3)
-                    self.send_json({"ok": True})
+                    subprocess.run(["input","swipe",
+                        str(int(float(data["x1"])*w)),str(int(float(data["y1"])*h)),
+                        str(int(float(data["x2"])*w)),str(int(float(data["y2"])*h)),
+                        str(int(data.get("ms",200)))],timeout=3)
                 elif kind == "text":
-                    text = str(data.get("text", "")).replace("\\", "\\\\").replace(" ", "%s")
-                    subprocess.run(["input", "text", text], timeout=3)
-                    self.send_json({"ok": True})
+                    subprocess.run(["input","text",str(data.get("text","")).replace(" ","%s")],timeout=3)
                 elif kind == "key":
-                    keycode = str(data.get("keycode", ""))
-                    if keycode:
-                        subprocess.run(["input", "keyevent", keycode], timeout=3)
-                    self.send_json({"ok": True})
-                else:
-                    self.send_json({"error": f"Unknown input type: {kind}"}, 400)
+                    subprocess.run(["input","keyevent",str(data.get("keycode",""))],timeout=3)
+                self.send_json({"ok": True})
             except Exception as e:
                 self.send_json({"error": str(e)}, 500)
             return
@@ -362,35 +363,74 @@ class AgentHandler(BaseHTTPRequestHandler):
 
 class AgentServer(ThreadingMixIn, HTTPServer):
     daemon_threads = True
+    is_https = False
+
+    def get_request(self):
+        sock, addr = super().get_request()
+        if self._ssl_ctx:
+            sock = self._ssl_ctx.wrap_socket(sock, server_side=True)
+        return sock, addr
+
+    def __init__(self, addr, handler, ssl_ctx=None):
+        self._ssl_ctx = ssl_ctx
+        self.is_https  = ssl_ctx is not None
+        super().__init__(addr, handler)
 
 
 def main():
+    has_tls = _ensure_cert()
+    ssl_ctx = _make_ssl_ctx() if has_tls else None
+
+    servers = []
+
+    # Always start HTTP
     try:
-        server = AgentServer((HOST, PORT), AgentHandler)
+        http = AgentServer((HOST, PORT_HTTP), AgentHandler, ssl_ctx=None)
+        servers.append((http, f"http://{HOST}:{PORT_HTTP}"))
     except OSError as e:
-        print(f"\n  ✗  Порт {PORT} занят: {e}\n")
-        sys.exit(1)
+        print(f"  ✗  HTTP port {PORT_HTTP} busy: {e}")
+
+    # Start HTTPS if cert available
+    if ssl_ctx:
+        try:
+            https = AgentServer((HOST, PORT_HTTPS), AgentHandler, ssl_ctx=ssl_ctx)
+            servers.append((https, f"https://{HOST}:{PORT_HTTPS}"))
+        except OSError as e:
+            print(f"  ✗  HTTPS port {PORT_HTTPS} busy: {e}")
+
+    if not servers:
+        print("  ✗  No ports available"); sys.exit(1)
+
+    https_url = f"https://{HOST}:{PORT_HTTPS}" if ssl_ctx else None
 
     print(f"""
 ╔════════════════════════════════════════╗
-║         Tovsa RC Agent v1.2            ║
+║         Tovsa RC Agent v1.3            ║
 ╚════════════════════════════════════════╝
 
-  API:      http://{HOST}:{PORT}
-  Приложение: http://{HOST}:{PORT}/app
-  Папка:    {CWD}
-  Платформа:{sys.platform}{'  (Termux)' if IS_TERMUX else ''}
-  JPEG:     {'✓ Pillow' if HAS_PILLOW else '✗ PNG (pip install pillow для ускорения)'}
+  HTTP:  http://{HOST}:{PORT_HTTP}/app
+  HTTPS: {https_url+'/app' if https_url else '✗ недоступен'}
+  Папка: {CWD}
+  JPEG:  {'✓ Pillow' if HAS_PILLOW else '✗ PNG'}
 
-  Открой в Chrome: http://localhost:{PORT}/app
+{'  ┌─ Первый раз: открой '+https_url+' в браузере' if https_url else ''}
+{'  │  нажми Дополнительно → Всё равно перейти' if https_url else ''}
+{'  └─ затем используй HTTPS адрес в агенте' if https_url else ''}
 
   Ctrl+C для остановки
 """)
+
+    import threading
+    for srv, url in servers[1:]:
+        t = threading.Thread(target=srv.serve_forever, daemon=True)
+        t.start()
+
     try:
-        server.serve_forever()
+        servers[0][0].serve_forever()
     except KeyboardInterrupt:
         print("\n  Агент остановлен.")
-        server.server_close()
+        for srv, _ in servers:
+            srv.server_close()
 
 
 if __name__ == "__main__":

@@ -153,7 +153,20 @@ CWD = str(Path.home() / "storage" / "shared") if IS_TERMUX and (Path.home() / "s
 _vnc_sock = None
 _vnc_w    = 0
 _vnc_h    = 0
-VNC_PASS  = "123456"
+# VNC пароль — хранится в файле ~/.tovsa/vnc_pass
+_VNC_PASS_FILE = INSTALL_DIR / "vnc_pass"
+
+def _get_vnc_pass():
+    if _VNC_PASS_FILE.exists():
+        return _VNC_PASS_FILE.read_text().strip()
+    # Генерируем случайный пароль при первом запуске
+    import random, string
+    pwd = ''.join(random.choices(string.ascii_letters + string.digits, k=8))
+    INSTALL_DIR.mkdir(parents=True, exist_ok=True)
+    _VNC_PASS_FILE.write_text(pwd)
+    return pwd
+
+VNC_PASS = _get_vnc_pass()
 
 def _des_key(password):
     """Reverse bit order of each byte for VNC DES."""
@@ -296,8 +309,36 @@ def _vnc_swipe(x1, y1, x2, y2, steps=10):
         _vnc_pointer(x, y, 1)
     _vnc_pointer(x2, y2, 0)
 
+def _vnc_autostart():
+    """Запускает VNC сервер если не запущен."""
+    # Проверяем запущен ли уже
+    r = subprocess.run(["vncserver", "-list"], capture_output=True, text=True)
+    if ":1" in r.stdout:
+        return True  # уже запущен
+    # Запускаем
+    print("  ⚙  Запускаю VNC сервер :1 ...")
+    # Устанавливаем пароль
+    passwd_proc = subprocess.run(
+        ["vncpasswd", str(Path.home() / ".vnc/passwd")],
+        input=f"{VNC_PASS}\n{VNC_PASS}\nn\n",
+        capture_output=True, text=True, timeout=5
+    )
+    r = subprocess.run(
+        ["vncserver", ":1", "-geometry", "1080x1920", "-depth", "24"],
+        capture_output=True, text=True, timeout=10
+    )
+    if r.returncode != 0:
+        print(f"  ✗  VNC не запустился: {r.stderr[:100]}")
+        return False
+    # Ждём пока VNC поднимется
+    time.sleep(2)
+    subprocess.Popen(["bash", "-c", "DISPLAY=:1 fluxbox & sleep 2 && DISPLAY=:1 chromium --no-sandbox &"])
+    print("  ✓  VNC сервер запущен")
+    return True
+
 VNC_AVAILABLE = False
 try:
+    _vnc_autostart()
     _vnc_connect(VNC_PASS)
     VNC_AVAILABLE = True
     _vnc_sock = None  # reconnect on demand
@@ -620,6 +661,10 @@ def main():
         print("\n  Агент остановлен.")
         for srv, _ in servers:
             srv.server_close()
+        if VNC_AVAILABLE:
+            print("  ⚙  Останавливаю VNC...")
+            subprocess.run(["vncserver", "-kill", ":1"], capture_output=True)
+            print("  ✓  VNC остановлен")
 
 
 if __name__ == "__main__":

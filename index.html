@@ -1223,12 +1223,14 @@ async function _scrDcLoop(fps,quality){
     const resp=await fetch(url);
     reader=resp.body.getReader();
     let buf=new Uint8Array(0);
-    let frames=0;
+    let frames=0, reads=0;
     while(_scrDcRunning){
       const{done,value}=await reader.read();
       if(done) break;
       const tmp=new Uint8Array(buf.length+value.length);
       tmp.set(buf); tmp.set(value,buf.length); buf=tmp;
+      reads++;
+      if(reads<=5) alog('read #'+reads+' chunk='+value.length+' buf='+buf.length+' hdr='+new TextDecoder().decode(buf.slice(0,Math.min(30,buf.length))).replace(/\r\n/g,'↵'));
       while(true){
         const hEnd=_indexOf(buf,CRLF2);
         if(hEnd===-1) break;

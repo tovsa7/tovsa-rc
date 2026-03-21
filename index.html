@@ -814,6 +814,7 @@ function handleDcMsg(from, msg){
     // Screen mirror — host side
     case 'screen_start': scrDcHostStart(from,msg); break;
     case 'screen_stop':  scrDcHostStop(from); scrDcCtrlStop(); break;
+    case 'screen_frame': scrDcCtrlFrame(msg); break;
     case 'screen_input': scrDcHostInput(from,msg); break;
   }
 }
@@ -1232,7 +1233,61 @@ async function scrDcHostStart(from, msg){
     _scrDcRunning=false; _scrDcTo=null;
     return;
   }
-  await scrHostStart();
+  // Use MJPEG stream from agent (VNC or screencap)
+  _scrDcLoop(msg.fps||8, msg.quality||65);
+}
+
+async function _scrDcLoop(fps, quality){
+  if(!_scrDcRunning||!_scrDcTo) return;
+  const interval=Math.round(1000/fps);
+  const SEP=new TextEncoder().encode('--frame');
+  const CRLF2=new TextEncoder().encode('\r\n\r\n');
+  const url=_agentUrl.replace(/\/+$/,'')+'/stream?q='+quality+'&s=0.5';
+  rlog('stream: '+url);
+  let reader=null;
+  try{
+    const resp=await fetch(url);
+    reader=resp.body.getReader();
+    rlog('stream ok','ok');
+    let buf=new Uint8Array(0), frames=0;
+    while(_scrDcRunning){
+      const{done,value}=await reader.read();
+      if(done) break;
+      const tmp=new Uint8Array(buf.length+value.length);
+      tmp.set(buf); tmp.set(value,buf.length); buf=tmp;
+      while(true){
+        const hEnd=_indexOf(buf,CRLF2);
+        if(hEnd===-1) break;
+        const dStart=hEnd+4;
+        const fEnd=_indexOf(buf,SEP,dStart);
+        if(fEnd===-1) break;
+        const frame=buf.slice(dStart,fEnd-2);
+        const hdr=new TextDecoder().decode(buf.slice(0,hEnd));
+        const mime=hdr.includes('jpeg')?'image/jpeg':'image/png';
+        let b64s='';
+        const SZ=16384;
+        for(let i=0;i<frame.length;i+=SZ) b64s+=String.fromCharCode(...frame.slice(i,i+SZ));
+        const b64=btoa(b64s);
+        dcSendRaw(_scrDcTo,{type:'screen_frame',b64,mime});
+        buf=buf.slice(fEnd);
+        frames++;
+        if(frames===1) rlog('first frame '+Math.round(b64.length/1024)+'KB','ok');
+        if(interval>0) await new Promise(r=>setTimeout(r,interval));
+      }
+    }
+  }catch(e){
+    rlog('stream err: '+e.message,'err');
+  }finally{
+    try{reader?.cancel();}catch(_){}
+    if(_scrDcRunning) setTimeout(()=>_scrDcLoop(fps,quality),2000);
+  }
+}
+
+function _indexOf(buf,seq,from=0){
+  outer:for(let i=from;i<=buf.length-seq.length;i++){
+    for(let j=0;j<seq.length;j++) if(buf[i+j]!==seq[j]) continue outer;
+    return i;
+  } return -1;
 }
 
 function scrDcHostStop(from){
@@ -1301,6 +1356,17 @@ function scrDcCtrlStop(){
   $('screen-fps').textContent='— fps';
   $('screen-placeholder').style.display='';
   rlog('трансляция завершена');
+}
+
+function scrDcCtrlFrame(msg){
+  const v=$('screen-video'); if(!v) return;
+  // Display frame via object URL
+  const blob=new Blob([Uint8Array.from(atob(msg.b64),c=>c.charCodeAt(0))],{type:msg.mime});
+  const url=URL.createObjectURL(blob);
+  const old=v.src;
+  v.src=url;
+  if(old.startsWith('blob:')) URL.revokeObjectURL(old);
+  _scrFpsCount++;
 }
 
 // ════════════════════════════════════════════

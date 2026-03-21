@@ -332,7 +332,7 @@ def _vnc_autostart():
         return False
     # Ждём пока VNC поднимется
     time.sleep(2)
-    subprocess.Popen(["bash", "-c", "DISPLAY=:1 fluxbox & sleep 2 && DISPLAY=:1 chromium --no-sandbox &"])
+    subprocess.Popen(["bash", "-c", "DISPLAY=:1 fluxbox & sleep 2 && DISPLAY=:1 chromium-browser --no-sandbox &"])
     print("  ✓  VNC сервер запущен")
     return True
 

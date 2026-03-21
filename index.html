@@ -326,10 +326,12 @@ textarea{resize:none;line-height:1.5}
       <button class="btn sm ghost" style="flex:1" onclick="screenKey(26)">⏻</button>
     </div>
     <div id="screen-img-wrap">
-      <img id="screen-img" draggable="false"
-           onpointerdown="scrPtrDown(event)"
-           onpointerup="scrPtrUp(event)"
-           onpointermove="scrPtrMove(event)">
+      <video id="screen-video" autoplay playsinline muted
+             style="max-width:100%;max-height:100%;object-fit:contain;display:block;touch-action:none;cursor:crosshair"
+             onpointerdown="scrPtrDown(event)"
+             onpointerup="scrPtrUp(event)"
+             onpointermove="scrPtrMove(event)"></video>
+      <div id="screen-placeholder" style="color:var(--mu);font-size:12px;text-align:center;padding:32px">Нажми ▶ Старт</div>
       <div id="screen-tap-flash"></div>
     </div>
     <div id="screen-text-row">
@@ -669,6 +671,12 @@ function getRtc(id){
     }
   };
 
+  entry.pc.ontrack=e=>{
+    rlog('ontrack: '+e.track.kind+' streams='+e.streams.length,'ok');
+    if(e.track.kind==='video' && currentDevice===id){
+      scrCtrlHandleTrack(e.track, e.streams);
+    }
+  };
   entry.pc.ondatachannel=e=>{
     entry._isInitiator=false;
     setupDc(id, e.channel);
@@ -804,10 +812,8 @@ function handleDcMsg(from, msg){
   switch(msg.type){
     // Screen mirror — host side
     case 'screen_start': scrDcHostStart(from,msg); break;
-    case 'screen_stop':  scrDcHostStop(from);      break;
+    case 'screen_stop':  scrDcHostStop(from); scrDcCtrlStop(); break;
     case 'screen_input': scrDcHostInput(from,msg); break;
-    // Screen mirror — controller side
-    case 'screen_frame': scrDcCtrlFrame(msg); break;
   }
 }
 
@@ -867,9 +873,7 @@ function closeDevice(){
     $('s-device').style.animation='';
   },220);
   // Stop screen
-  if(_scrRunning){
-    if(currentDevice) scrDcStop(); else scrStop();
-  }
+  if(_scrRunning){ scrDcStop(); }
   _scrRunning=false;
   $('screen-btn').textContent='▶ Старт'; $('screen-btn').style.background='';
   $('screen-fps').textContent='— fps';
@@ -1072,7 +1076,7 @@ function fileEmoji(n){
 // SCREEN MIRROR
 // ════════════════════════════════════════════
 function scrNorm(e){
-  const img=$('screen-img'), rect=img.getBoundingClientRect();
+  const img=$('screen-video'), rect=img.getBoundingClientRect();
   const ia=_scrW/_scrH, ba=rect.width/rect.height;
   let dW,dH,oX,oY;
   if(ia>ba){dW=rect.width;dH=rect.width/ia;oX=0;oY=(rect.height-dH)/2;}
@@ -1084,7 +1088,7 @@ function scrNorm(e){
 }
 
 function scrFlash(e){
-  const fl=$('screen-tap-flash'), img=$('screen-img'), rect=img.getBoundingClientRect();
+  const fl=$('screen-tap-flash'), img=$('screen-video'), rect=img.getBoundingClientRect();
   fl.style.left=(e.clientX-rect.left)+'px';
   fl.style.top=(e.clientY-rect.top)+'px';
   fl.style.display='block'; fl.style.opacity='1';
@@ -1126,40 +1130,18 @@ function screenSendText(){
 
 function screenToggle(){
   if(_scrRunning){
-    if(currentDevice) scrDcStop(); else scrStop();
+    scrDcStop();
   } else {
-    if(currentDevice) scrDcStart(); else scrStart();
+    scrDcStart();
   }
 }
 
-function screenSetQ(q){
-  _scrQ=q;
-  if(_scrRunning){
-    if(currentDevice){scrDcStop();setTimeout(scrDcStart,200);}
-    else{scrStop();scrStart();}
-  }
-}
+function screenSetQ(q){ _scrQ=q; }
 
-// Local screen (device opens its own agent stream)
-async function scrStart(){
-  try{
-    const info=await agentFetch('/screeninfo');
-    _scrW=info.width||1080; _scrH=info.height||1920;
-    $('screen-res').textContent=_scrW+'×'+_scrH;
-  }catch(_){}
-  _scrRunning=true; _scrFpsTs=performance.now(); _scrFpsCount=0;
-  $('screen-btn').textContent='⏹ Стоп'; $('screen-btn').style.background='var(--e)';
-  $('screen-img').src=_agentUrl.replace(/\/+$/,'')+'/stream?q='+_scrQ;
-  scrFpsLoop();
-}
+// ── Screen: getDisplayMedia + WebRTC video track ────
+let _scrStream = null;  // MediaStream from getDisplayMedia (host)
 
-function scrStop(){
-  _scrRunning=false;
-  $('screen-img').src='';
-  $('screen-btn').textContent='▶ Старт'; $('screen-btn').style.background='';
-  $('screen-fps').textContent='— fps';
-}
-
+// FPS counter loop
 function scrFpsLoop(){
   if(!_scrRunning) return;
   _scrFpsCount++;
@@ -1171,12 +1153,97 @@ function scrFpsLoop(){
   requestAnimationFrame(scrFpsLoop);
 }
 
-// DC-based screen mirror (controller requests stream from remote device)
+// ── HOST side ─────────────────────────────────────────
+async function scrHostStart(){
+  // Called on the device that will share its screen
+  try{
+    _scrStream = await navigator.mediaDevices.getDisplayMedia({
+      video:{frameRate:{ideal:30,max:30}, width:{ideal:1080}, height:{ideal:1920}},
+      audio:false
+    });
+  }catch(e){
+    rlog('getDisplayMedia: '+e.message,'err');
+    toast('Отклонено или не поддерживается','err');
+    return;
+  }
+
+  // Add tracks to existing RTCPeerConnection and renegotiate
+  const entry = rtcs[_scrDcTo];
+  if(!entry?.pc){
+    rlog('нет PC для трансляции','err');
+    _scrStream.getTracks().forEach(t=>t.stop());
+    _scrStream=null;
+    return;
+  }
+
+  // Add video track
+  for(const track of _scrStream.getTracks()){
+    entry.pc.addTrack(track, _scrStream);
+  }
+
+  // Handle stream stop (user clicks system stop button)
+  _scrStream.getVideoTracks()[0].onended = ()=>{
+    rlog('трансляция остановлена пользователем');
+    scrHostStop();
+  };
+
+  rlog('getDisplayMedia OK, renegotiating...','ok');
+
+  // Renegotiate
+  try{
+    const offer = await entry.pc.createOffer();
+    await entry.pc.setLocalDescription(offer);
+    wsSend({type:'RELAY', to:_scrDcTo, kind:'offer', data:offer});
+    rlog('renego offer sent','ok');
+  }catch(e){
+    rlog('renego error: '+e.message,'err');
+  }
+}
+
+function scrHostStop(){
+  if(_scrStream){
+    _scrStream.getTracks().forEach(t=>t.stop());
+    _scrStream=null;
+  }
+  _scrDcRunning=false;
+  // Notify controller
+  if(_scrDcTo) dcSendRaw(_scrDcTo,{type:'screen_stop'});
+  _scrDcTo=null;
+  rlog('трансляция остановлена');
+}
+
+// HOST: received screen_start from controller
+async function scrDcHostStart(from, msg){
+  _scrDcTo=from; _scrDcRunning=true;
+  const dc=rtcs[from]?.dc;
+  rlog('screen_start dc='+(dc?.readyState||'none'));
+  if(!dc||dc.readyState!=='open'){
+    rlog('DC not open','err');
+    _scrDcRunning=false; _scrDcTo=null;
+    return;
+  }
+  await scrHostStart();
+}
+
+function scrDcHostStop(from){
+  _scrDcRunning=false;
+  rlog('← screen_stop');
+  scrHostStop();
+}
+
+function scrDcHostInput(from, msg){
+  // No root/ADB → can't inject input, ignore silently
+  // (kept for future when ADB is available)
+}
+
+// ── CONTROLLER side ───────────────────────────────────
 function scrDcStart(){
   if(!currentDevice) return;
-  dcSendRaw(currentDevice,{type:'screen_start',fps:8,quality:_scrQ});
+  dcSendRaw(currentDevice,{type:'screen_start'});
   _scrRunning=true; _scrFpsTs=performance.now(); _scrFpsCount=0;
   $('screen-btn').textContent='⏹ Стоп'; $('screen-btn').style.background='var(--e)';
+  $('screen-placeholder').style.display='none';
+  rlog('screen_start sent','ok');
   scrFpsLoop();
 }
 
@@ -1184,95 +1251,46 @@ function scrDcStop(){
   if(!currentDevice) return;
   dcSendRaw(currentDevice,{type:'screen_stop'});
   _scrRunning=false;
-  $('screen-img').src='';
+  const v=$('screen-video'); if(v) v.srcObject=null;
   $('screen-btn').textContent='▶ Старт'; $('screen-btn').style.background='';
   $('screen-fps').textContent='— fps';
+  $('screen-placeholder').style.display='';
+  rlog('screen_stop sent');
 }
 
-// HOST: receive screen_start from controller
-async function scrDcHostStart(from,msg){
-  _scrDcTo=from; _scrDcRunning=true;
-  const dc=rtcs[from]?.dc;
-  rlog('screen_start dc='+( dc?.readyState||'none')+' agent='+_agentUrl);
-  if(!dc||dc.readyState!=='open'){
-    rlog('DC not open, cannot stream','err');
-    _scrDcRunning=false; _scrDcTo=null;
-    return;
-  }
-  _scrDcLoop(msg.fps||8, msg.quality||65);
-}
-
-function scrDcHostStop(from){
-  _scrDcRunning=false; _scrDcTo=null;
-  clearTimeout(_scrDcTimer);
-  alog('← screen_stop');
-}
-
-function scrDcHostInput(from,msg){
-  agentFetch('/input',msg).catch(()=>{});
-}
-
-async function _scrDcLoop(fps,quality){
-  if(!_scrDcRunning||!_scrDcTo) return;
-  const interval=Math.round(1000/fps);
-  const SEP=new TextEncoder().encode('--frame');
-  const CRLF2=new TextEncoder().encode('\r\n\r\n');
-  const url=_agentUrl.replace(/\/+$/,'')+'/stream?q='+quality+'&s=0.5';
-  rlog('stream fetch: '+url);
-  let reader=null;
-  try{
-    const resp=await fetch(url);
-    reader=resp.body.getReader();
-    rlog('stream ok, ct='+resp.headers.get('content-type'));
-    let buf=new Uint8Array(0);
-    let frames=0, reads=0;
-    while(_scrDcRunning){
-      const{done,value}=await reader.read();
-      if(done) break;
-      const tmp=new Uint8Array(buf.length+value.length);
-      tmp.set(buf); tmp.set(value,buf.length); buf=tmp;
-      reads++;
-      rlog('chunk #'+reads+' +'+value.length+'B buf='+buf.length+'B');
-      while(true){
-        const hEnd=_indexOf(buf,CRLF2);
-        if(hEnd===-1){ if(reads<=3) rlog('no CRLF2 in '+buf.length+'B'); break; }
-        const dStart=hEnd+4;
-        const fEnd=_indexOf(buf,SEP,dStart);
-        if(fEnd===-1){ if(reads<=3) rlog('no SEP after hEnd='+hEnd+' dStart='+dStart+' buf='+buf.length+'B'); break; }
-        const frame=buf.slice(dStart,fEnd-2);
-        const hdr=new TextDecoder().decode(buf.slice(0,hEnd));
-        const mime=hdr.includes('jpeg')?'image/jpeg':'image/png';
-        let b64s='';
-        const SZ=16384;
-        for(let i=0;i<frame.length;i+=SZ) b64s+=String.fromCharCode(...frame.slice(i,i+SZ));
-        const b64=btoa(b64s);
-        dcSendRaw(_scrDcTo,{type:'screen_frame',b64,mime});
-        buf=buf.slice(fEnd);
-        frames++;
-        if(frames===1) rlog('first frame '+Math.round(b64.length/1024)+'KB sent','ok');
-        if(interval>0) await new Promise(r=>setTimeout(r,interval));
-      }
-    }
-  }catch(e){
-    rlog('stream err: '+e.message,'err');
-  }finally{
-    try{reader?.cancel();}catch(_){}
-    if(_scrDcRunning) _scrDcTimer=setTimeout(()=>_scrDcLoop(fps,quality),2000);
+// CONTROLLER: received video track from host via WebRTC
+function scrCtrlHandleTrack(track, streams){
+  rlog('video track received: '+track.kind,'ok');
+  const v=$('screen-video');
+  if(!v) return;
+  v.srcObject=streams[0]||new MediaStream([track]);
+  $('screen-placeholder').style.display='none';
+  // FPS from video events
+  v.onloadedmetadata=()=>{
+    _scrW=v.videoWidth||1080; _scrH=v.videoHeight||1920;
+    $('screen-res').textContent=_scrW+'×'+_scrH;
+    rlog('video '+_scrW+'×'+_scrH,'ok');
+  };
+  v.requestPictureInPicture?.().catch(()=>{});
+  // Count frames via requestVideoFrameCallback if available
+  if(v.requestVideoFrameCallback){
+    const countFps=()=>{
+      if(!_scrRunning) return;
+      _scrFpsCount++;
+      v.requestVideoFrameCallback(countFps);
+    };
+    v.requestVideoFrameCallback(countFps);
   }
 }
 
-function _indexOf(buf,seq,from=0){
-  outer:for(let i=from;i<=buf.length-seq.length;i++){
-    for(let j=0;j<seq.length;j++) if(buf[i+j]!==seq[j]) continue outer;
-    return i;
-  } return -1;
-}
-
-// CONTROLLER: receive frame from host
-function scrDcCtrlFrame(msg){
-  const img=$('screen-img'); if(!img) return;
-  img.src='data:'+msg.mime+';base64,'+msg.b64;
-  _scrFpsCount++;
+// CONTROLLER: screen_stop message from host
+function scrDcCtrlStop(){
+  const v=$('screen-video'); if(v) v.srcObject=null;
+  _scrRunning=false;
+  $('screen-btn').textContent='▶ Старт'; $('screen-btn').style.background='';
+  $('screen-fps').textContent='— fps';
+  $('screen-placeholder').style.display='';
+  rlog('трансляция завершена');
 }
 
 // ════════════════════════════════════════════

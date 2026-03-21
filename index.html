@@ -1228,17 +1228,12 @@ async function _scrDcLoop(fps,quality){
         const frame=buf.slice(dStart,fEnd-2);
         const hdr=new TextDecoder().decode(buf.slice(0,hEnd));
         const mime=hdr.includes('jpeg')?'image/jpeg':'image/png';
-        // base64 encode
         let b64s='';
         const SZ=16384;
         for(let i=0;i<frame.length;i+=SZ) b64s+=String.fromCharCode(...frame.slice(i,i+SZ));
         const b64=btoa(b64s);
-        const frameMsg=JSON.stringify({type:'screen_frame',b64,mime});
-        if(frameMsg.length>200000){
-          alog('frame too large: '+Math.round(frameMsg.length/1024)+'KB, skipping');
-        } else {
-          dcSendRaw(_scrDcTo,{type:'screen_frame',b64,mime});
-        }
+        alog('frame '+Math.round(b64.length/1024)+'KB sent');
+        dcSendRaw(_scrDcTo,{type:'screen_frame',b64,mime});
         buf=buf.slice(fEnd);
         // throttle: wait before next frame
         if(interval>0) await new Promise(r=>setTimeout(r,interval));

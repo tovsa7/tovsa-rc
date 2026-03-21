@@ -61,16 +61,19 @@ def _capture_png():
         return None
 
 
-def _capture_jpeg(quality=65):
+def _capture_jpeg(quality=65, scale=1.0):
     try:
         from PIL import Image
         import io
         r = subprocess.run(["screencap", "-p"], capture_output=True, timeout=4)
         if r.returncode != 0 or not r.stdout:
             return None
-        img = Image.open(io.BytesIO(r.stdout))
+        img = Image.open(io.BytesIO(r.stdout)).convert("RGB")
+        if scale < 1.0:
+            w, h = img.size
+            img = img.resize((int(w*scale), int(h*scale)), Image.BILINEAR)
         buf = io.BytesIO()
-        img.convert("RGB").save(buf, format="JPEG", quality=quality, optimize=False)
+        img.save(buf, format="JPEG", quality=quality, optimize=False)
         return buf.getvalue()
     except Exception:
         return None
@@ -183,10 +186,15 @@ class AgentHandler(BaseHTTPRequestHandler):
 
         if self.path.startswith("/stream"):
             quality = 65
+            scale   = 1.0
             if "q=" in self.path:
                 try: quality = int(self.path.split("q=")[1].split("&")[0])
                 except Exception: pass
+            if "s=" in self.path:
+                try: scale = float(self.path.split("s=")[1].split("&")[0])
+                except Exception: pass
             quality = max(10, min(95, quality))
+            scale   = max(0.2, min(1.0, scale))
 
             self.send_response(200)
             self.send_header("Content-Type",  "multipart/x-mixed-replace; boundary=frame")
@@ -197,7 +205,7 @@ class AgentHandler(BaseHTTPRequestHandler):
             try:
                 while True:
                     t0    = time.monotonic()
-                    frame = _capture_jpeg(quality) if HAS_PILLOW else _capture_png()
+                    frame = _capture_jpeg(quality, scale) if HAS_PILLOW else _capture_png()
                     mime  = b"image/jpeg" if HAS_PILLOW else b"image/png"
                     if frame is None:
                         time.sleep(0.5)

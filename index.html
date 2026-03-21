@@ -1207,7 +1207,7 @@ async function _scrDcLoop(fps,quality){
   const CRLF2=new TextEncoder().encode('\r\n\r\n');
   let reader=null;
   try{
-    const resp=await fetch(_agentUrl.replace(/\/+$/,'')+'/stream?q='+quality);
+    const resp=await fetch(_agentUrl.replace(/\/+$/,'')+'/stream?q='+quality+'&s=0.5');
     reader=resp.body.getReader();
     let buf=new Uint8Array(0);
     alog('stream connected');
@@ -1232,7 +1232,13 @@ async function _scrDcLoop(fps,quality){
         let b64s='';
         const SZ=16384;
         for(let i=0;i<frame.length;i+=SZ) b64s+=String.fromCharCode(...frame.slice(i,i+SZ));
-        dcSend(_scrDcTo,{type:'screen_frame',b64:btoa(b64s),mime});
+        const b64=btoa(b64s);
+        const frameMsg=JSON.stringify({type:'screen_frame',b64,mime});
+        if(frameMsg.length>200000){
+          alog('frame too large: '+Math.round(frameMsg.length/1024)+'KB, skipping');
+        } else {
+          dcSendRaw(_scrDcTo,{type:'screen_frame',b64,mime});
+        }
         buf=buf.slice(fEnd);
         // throttle: wait before next frame
         if(interval>0) await new Promise(r=>setTimeout(r,interval));

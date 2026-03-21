@@ -1204,7 +1204,7 @@ async function _scrDcLoop(fps,quality){
   if(!_scrDcRunning||!_scrDcTo) return;
   const interval=Math.round(1000/fps);
   try{
-    const resp=await fetch(_agentUrl.replace(/\/+$/,'')+'/stream?q='+quality,{signal:AbortSignal.timeout(4000)});
+    const resp=await fetch(_agentUrl.replace(/\/+$/,'')+'/stream?q='+quality);
     const reader=resp.body.getReader();
     let buf=new Uint8Array(0);
     const SEP=new TextEncoder().encode('--frame');

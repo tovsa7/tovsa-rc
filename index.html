@@ -225,15 +225,6 @@ textarea{resize:none;line-height:1.5}
           <input id="srv-custom" placeholder="wss://..." style="display:none">
           <button class="btn full" id="btn-connect" onclick="connectToServer()">Подключиться</button>
         </div>
-        <div class="card">
-          <div class="card-title">Мой ID</div>
-          <div class="qr-wrap" id="qr-wrap"></div>
-          <div class="my-id" id="my-id-text" onclick="copyMyId()">—</div>
-        </div>
-        <div class="card">
-          <div class="card-title">Опасная зона</div>
-          <button class="btn danger sm full" onclick="resetKey()">Сбросить ключ (ID изменится)</button>
-        </div>
       </div>
     </div>
 
@@ -353,14 +344,20 @@ textarea{resize:none;line-height:1.5}
 <!-- Add device modal -->
 <div class="modal-bg" id="add-modal" onclick="if(event.target===this)closeAddModal()">
   <div class="modal-sheet">
-    <div class="modal-title">Добавить устройство</div>
-    <div class="qr-wrap" id="add-qr-wrap" style="margin:-4px 0"></div>
+    <div style="display:flex;align-items:center">
+      <div class="modal-title" style="flex:1">Добавить устройство</div>
+      <button onclick="closeAddModal()" style="background:none;border:none;color:var(--mu);font-size:22px;cursor:pointer;padding:0;line-height:1">×</button>
+    </div>
+    <div style="font-size:11px;color:var(--mu);text-align:center">Покажи QR второму устройству</div>
+    <div class="qr-wrap" id="add-qr-wrap"></div>
     <div class="my-id" id="add-my-id" onclick="copyMyId()">—</div>
     <div style="font-size:11px;color:var(--mu);text-align:center">или введи ID вручную:</div>
     <input id="add-name" placeholder="Имя устройства">
     <input id="add-id" placeholder="tvp-...">
-    <button class="btn full" onclick="doAddPeer()">Добавить</button>
-    <button class="btn ghost full" onclick="closeAddModal()">Отмена</button>
+    <button class="btn full" onclick="doAddPeer()">+ Добавить</button>
+    <div style="border-top:1px solid var(--bd);margin:0 -20px;padding:12px 20px 0">
+      <button class="btn danger sm full" onclick="closeAddModal();resetKey()">Сбросить ключ (ID изменится)</button>
+    </div>
   </div>
 </div>
 
@@ -930,11 +927,6 @@ function generateQr(){
   catch(_){w.textContent=myId;}
   $('add-my-id').textContent=myId;
 }
-function generateMainQr(){
-  const w=$('qr-wrap'); w.innerHTML='';
-  try{new QRCode(w,{text:myId,width:180,height:180,colorDark:'#000',colorLight:'#fff'});}
-  catch(_){w.textContent=myId;}
-}
 function doAddPeer(){
   const id=$('add-id').value.trim(), name=$('add-name').value.trim();
   if(!id){toast('Введи ID','err');return;}
@@ -1289,7 +1281,6 @@ function scrDcCtrlFrame(msg){
 // ════════════════════════════════════════════
 (async()=>{
   await loadOrGenKey();
-  generateMainQr();
   $('my-id-badge').textContent=myId;
 
   const saved=localStorage.getItem('tvrc_srv');

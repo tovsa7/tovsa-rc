@@ -1203,42 +1203,45 @@ function scrDcHostInput(from,msg){
 async function _scrDcLoop(fps,quality){
   if(!_scrDcRunning||!_scrDcTo) return;
   const interval=Math.round(1000/fps);
+  const SEP=new TextEncoder().encode('--frame');
+  const CRLF2=new TextEncoder().encode('\r\n\r\n');
+  let reader=null;
   try{
     const resp=await fetch(_agentUrl.replace(/\/+$/,'')+'/stream?q='+quality);
-    const reader=resp.body.getReader();
+    reader=resp.body.getReader();
     let buf=new Uint8Array(0);
-    const SEP=new TextEncoder().encode('--frame');
-    const CRLF2=new TextEncoder().encode('\r\n\r\n');
-
-    const pump=async()=>{
-      if(!_scrDcRunning){reader.cancel();return;}
+    alog('stream connected');
+    while(_scrDcRunning){
       const{done,value}=await reader.read();
-      if(done) return;
+      if(done) break;
+      // append chunk
       const tmp=new Uint8Array(buf.length+value.length);
       tmp.set(buf); tmp.set(value,buf.length); buf=tmp;
-
-      const hEnd=_indexOf(buf,CRLF2);
-      if(hEnd!==-1){
+      // try to extract complete frame
+      while(true){
+        const hEnd=_indexOf(buf,CRLF2);
+        if(hEnd===-1) break;
         const dStart=hEnd+4;
         const fEnd=_indexOf(buf,SEP,dStart);
-        if(fEnd!==-1){
-          const frame=buf.slice(dStart,fEnd-2);
-          const hdr=new TextDecoder().decode(buf.slice(0,hEnd));
-          const mime=hdr.includes('jpeg')?'image/jpeg':'image/png';
-          let b64s='';
-          const chunk=8192;
-          for(let i=0;i<frame.length;i+=chunk) b64s+=String.fromCharCode(...frame.slice(i,i+chunk));
-          dcSend(_scrDcTo,{type:'screen_frame',b64:btoa(b64s),mime});
-          buf=buf.slice(fEnd);
-          _scrDcTimer=setTimeout(()=>pump(),interval);
-          return;
-        }
+        if(fEnd===-1) break;
+        // got a complete frame
+        const frame=buf.slice(dStart,fEnd-2);
+        const hdr=new TextDecoder().decode(buf.slice(0,hEnd));
+        const mime=hdr.includes('jpeg')?'image/jpeg':'image/png';
+        // base64 encode
+        let b64s='';
+        const SZ=16384;
+        for(let i=0;i<frame.length;i+=SZ) b64s+=String.fromCharCode(...frame.slice(i,i+SZ));
+        dcSend(_scrDcTo,{type:'screen_frame',b64:btoa(b64s),mime});
+        buf=buf.slice(fEnd);
+        // throttle: wait before next frame
+        if(interval>0) await new Promise(r=>setTimeout(r,interval));
       }
-      await pump();
-    };
-    await pump();
+    }
   }catch(e){
     alog('screen loop: '+e.message);
+  }finally{
+    try{reader?.cancel();}catch(_){}
     if(_scrDcRunning) _scrDcTimer=setTimeout(()=>_scrDcLoop(fps,quality),2000);
   }
 }

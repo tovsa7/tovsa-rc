@@ -422,40 +422,7 @@ select{cursor:pointer;appearance:none;
 
   <!-- ── COMMANDS panel ── -->
   <div class="inner-panel on" id="ipanel-commands">
-    <div class="section-scroll" style="padding-top:10px">
-      <div class="r-card" id="agent-card">
-        <div class="r-card-title" style="justify-content:space-between">
-          <span>⚡ Агент</span>
-          <span id="agent-status" style="font-size:10px;color:var(--mu)">не подключён</span>
-        </div>
-        <!-- Install hint (shown when not connected) -->
-        <div id="agent-install-hint" style="background:var(--bg);border:1px solid var(--bd);border-radius:8px;padding:10px 12px;font-size:11px;color:var(--mu);line-height:1.9">
-          Запусти на устройстве:<br>
-          <code style="color:var(--a);user-select:all;cursor:pointer" onclick="copyText(this.textContent,'Скопировано')" title="Нажми чтобы скопировать">python3 -c "$(curl -fsSL https://tovsa7.github.io/tovsa-rc/bootstrap.py)"</code>
-          <br><span style="opacity:.6">Windows PowerShell:</span><br>
-          <code style="color:var(--a);user-select:all;cursor:pointer;font-size:10px" onclick="copyText(this.textContent,'Скопировано')" title="Нажми чтобы скопировать">python -c (Invoke-WebRequest https://tovsa7.github.io/tovsa-rc/bootstrap.py).Content</code>
-          <br><span style="opacity:.6">Android (Termux):</span><br>
-          <code style="color:var(--a);user-select:all;cursor:pointer" onclick="copyText(this.textContent,'Скопировано')" title="Нажми чтобы скопировать">pkg install python curl && python3 -c "$(curl -fsSL https://tovsa7.github.io/tovsa-rc/bootstrap.py)"</code>
-          <br><span style="opacity:.5;font-size:10px">Для доступа к файлам телефона: <code style="color:var(--w)" onclick="copyText('termux-setup-storage','Скопировано')">termux-setup-storage</code></span>
-        </div>
-        <div class="row" style="align-items:center">
-          <div id="agent-debug-log" onclick="navigator.clipboard?.writeText(this.textContent).then(()=>toast('Скопировано','ok'))" style="display:block;font-size:10px;font-family:monospace;color:var(--mu);background:var(--bg);border:1px solid var(--bd);border-radius:6px;padding:6px 8px;max-height:80px;overflow-y:auto;white-space:pre;cursor:pointer;margin-bottom:6px;min-height:24px" title="Нажми чтобы скопировать">лог...</div>
-          <input id="agent-url" placeholder="http://localhost:7070" value="http://localhost:7070" style="flex:1;font-size:11px">
-          <button class="btn sm" onclick="agentConnect()" id="agent-connect-btn">Подключить</button>
-        </div>
-        <div id="agent-info" style="display:none;font-size:11px;color:var(--mu);background:var(--bg);border:1px solid var(--bd);border-radius:8px;padding:8px 10px;line-height:1.8"></div>
-        <!-- Terminal -->
-        <div id="agent-term" style="display:none;flex-direction:column;gap:6px">
-          <div id="agent-cwd" style="font-size:10px;color:var(--a);background:var(--bg);border:1px solid var(--bd);border-radius:6px;padding:4px 8px;cursor:pointer" onclick="agentCd('..') " title="Нажми чтобы перейти выше">📁 /</div>
-          <div id="agent-ls" style="background:var(--bg);border:1px solid var(--bd);border-radius:8px;overflow:hidden;max-height:180px;overflow-y:auto"></div>
-          <div class="row">
-            <input id="agent-cmd" placeholder="команда..." style="flex:1;font-size:11px" onkeydown="if(event.key==='Enter')agentRun()">
-            <button class="btn sm" onclick="agentRun()">▶</button>
-          </div>
-          <div id="agent-output" style="display:none;background:var(--bg);border:1px solid var(--bd);border-radius:8px;padding:8px 10px;font-size:10px;line-height:1.7;max-height:160px;overflow-y:auto;white-space:pre-wrap;word-break:break-all"></div>
-        </div>
-      </div>
-    </div>
+    <div style="flex:1;display:flex;align-items:center;justify-content:center;padding:32px;text-align:center"><span style="font-size:11px;color:var(--mu)">Настройки агента — в таббаре ⚡</span></div>
   </div>
 
   <!-- ── FILES panel ── -->
@@ -609,12 +576,54 @@ select{cursor:pointer;appearance:none;
   </div>
 </div>
 
+<div class="scr" id="s-agent" style="flex-direction:column;overflow-y:auto">
+  <div style="padding:16px 16px 4px;font-size:11px;font-weight:700;letter-spacing:1.5px;color:var(--mu);text-transform:uppercase">Агент</div>
+  <div style="padding:0 12px 80px">
+    <div class="r-card" id="agent-card">
+        <div class="r-card-title" style="justify-content:space-between">
+          <span>⚡ Агент</span>
+          <span id="agent-status" style="font-size:10px;color:var(--mu)">не подключён</span>
+        </div>
+        <!-- Install hint (shown when not connected) -->
+        <div id="agent-install-hint" style="background:var(--bg);border:1px solid var(--bd);border-radius:8px;padding:10px 12px;font-size:11px;color:var(--mu);line-height:1.9">
+          Запусти на устройстве:<br>
+          <code style="color:var(--a);user-select:all;cursor:pointer" onclick="copyText(this.textContent,'Скопировано')" title="Нажми чтобы скопировать">python3 -c "$(curl -fsSL https://tovsa7.github.io/tovsa-rc/bootstrap.py)"</code>
+          <br><span style="opacity:.6">Windows PowerShell:</span><br>
+          <code style="color:var(--a);user-select:all;cursor:pointer;font-size:10px" onclick="copyText(this.textContent,'Скопировано')" title="Нажми чтобы скопировать">python -c (Invoke-WebRequest https://tovsa7.github.io/tovsa-rc/bootstrap.py).Content</code>
+          <br><span style="opacity:.6">Android (Termux):</span><br>
+          <code style="color:var(--a);user-select:all;cursor:pointer" onclick="copyText(this.textContent,'Скопировано')" title="Нажми чтобы скопировать">pkg install python curl && python3 -c "$(curl -fsSL https://tovsa7.github.io/tovsa-rc/bootstrap.py)"</code>
+          <br><span style="opacity:.5;font-size:10px">Для доступа к файлам телефона: <code style="color:var(--w)" onclick="copyText('termux-setup-storage','Скопировано')">termux-setup-storage</code></span>
+        </div>
+        <div class="row" style="align-items:center">
+          <div id="agent-debug-log" onclick="navigator.clipboard?.writeText(this.textContent).then(()=>toast('Скопировано','ok'))" style="display:block;font-size:10px;font-family:monospace;color:var(--mu);background:var(--bg);border:1px solid var(--bd);border-radius:6px;padding:6px 8px;max-height:80px;overflow-y:auto;white-space:pre;cursor:pointer;margin-bottom:6px;min-height:24px" title="Нажми чтобы скопировать">лог...</div>
+          <input id="agent-url" placeholder="http://localhost:7070" value="http://localhost:7070" style="flex:1;font-size:11px">
+          <button class="btn sm" onclick="agentConnect()" id="agent-connect-btn">Подключить</button>
+        </div>
+        <div id="agent-info" style="display:none;font-size:11px;color:var(--mu);background:var(--bg);border:1px solid var(--bd);border-radius:8px;padding:8px 10px;line-height:1.8"></div>
+        <!-- Terminal -->
+        <div id="agent-term" style="display:none;flex-direction:column;gap:6px">
+          <div id="agent-cwd" style="font-size:10px;color:var(--a);background:var(--bg);border:1px solid var(--bd);border-radius:6px;padding:4px 8px;cursor:pointer" onclick="agentCd('..') " title="Нажми чтобы перейти выше">📁 /</div>
+          <div id="agent-ls" style="background:var(--bg);border:1px solid var(--bd);border-radius:8px;overflow:hidden;max-height:180px;overflow-y:auto"></div>
+          <div class="row">
+            <input id="agent-cmd" placeholder="команда..." style="flex:1;font-size:11px" onkeydown="if(event.key==='Enter')agentRun()">
+            <button class="btn sm" onclick="agentRun()">▶</button>
+          </div>
+          <div id="agent-output" style="display:none;background:var(--bg);border:1px solid var(--bd);border-radius:8px;padding:8px 10px;font-size:10px;line-height:1.7;max-height:160px;overflow-y:auto;white-space:pre-wrap;word-break:break-all"></div>
+        </div>
+      </div>
+  </div>
+</div>
+
 <!-- TABBAR -->
 <div class="tabbar" id="tabbar">
   <div id="tab-pill"></div>
   <button class="tab act" id="tab-settings" onclick="goTab('settings')">
     <div class="tab-icon">⚙️</div>
     <div class="tab-label">НАСТРОЙКИ</div>
+  </button>
+  <button class="tab" id="tab-agent" onclick="goTab('agent')">
+    <div class="tab-icon">⚡</div>
+    <div class="tab-label">АГЕНТ</div>
   </button>
   <button class="tab" id="tab-devices" onclick="goTab('devices')">
     <div class="tab-icon-wrap">
@@ -729,7 +738,7 @@ function tsNow(){ return new Date().toLocaleTimeString('ru',{hour:'2-digit',minu
 
 // ── Tabs ──────────────────────────────────────────────
 function goTab(name){
-  ['settings','devices'].forEach(t=>{
+  ['settings','agent','devices'].forEach(t=>{
     $('tab-'+t).classList.toggle('act',t===name);
     $('s-'+t).classList.toggle('on',t===name);
   });

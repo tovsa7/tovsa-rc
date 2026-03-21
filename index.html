@@ -1108,7 +1108,7 @@ function scrPtrUp(e){
 function scrPtrMove(e){ /* visual only */ }
 
 function scrSendInput(inp){
-  if(currentDevice) dcSend(currentDevice,{type:'screen_input',...inp});
+  if(currentDevice) dcSendRaw(currentDevice,{type:'screen_input',...inp});
   else agentFetch('/input',inp).catch(()=>{});
 }
 
@@ -1168,7 +1168,7 @@ function scrFpsLoop(){
 // DC-based screen mirror (controller requests stream from remote device)
 function scrDcStart(){
   if(!currentDevice) return;
-  dcSend(currentDevice,{type:'screen_start',fps:8,quality:_scrQ});
+  dcSendRaw(currentDevice,{type:'screen_start',fps:8,quality:_scrQ});
   _scrRunning=true; _scrFpsTs=performance.now(); _scrFpsCount=0;
   $('screen-btn').textContent='⏹ Стоп'; $('screen-btn').style.background='var(--e)';
   scrFpsLoop();
@@ -1176,7 +1176,7 @@ function scrDcStart(){
 
 function scrDcStop(){
   if(!currentDevice) return;
-  dcSend(currentDevice,{type:'screen_stop'});
+  dcSendRaw(currentDevice,{type:'screen_stop'});
   _scrRunning=false;
   $('screen-img').src='';
   $('screen-btn').textContent='▶ Старт'; $('screen-btn').style.background='';
@@ -1217,12 +1217,6 @@ async function _scrDcLoop(fps,quality){
       // append chunk
       const tmp=new Uint8Array(buf.length+value.length);
       tmp.set(buf); tmp.set(value,buf.length); buf=tmp;
-      // debug: log first chunk
-      if(!_debugLogged && buf.length>0){
-        _debugLogged=true;
-        const preview=new TextDecoder('utf-8',{fatal:false}).decode(buf.slice(0,80));
-        alog('buf[0..80]: '+preview.replace(/\r/g,'\\r').replace(/\n/g,'\\n'));
-      }
       // try to extract complete frame
       while(true){
         const hEnd=_indexOf(buf,CRLF2);
